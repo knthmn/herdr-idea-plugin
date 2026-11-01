@@ -5,12 +5,13 @@ import com.intellij.openapi.fileTypes.ex.FakeFileType
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.terminal.frontend.toolwindow.TerminalToolWindowTab
 import com.intellij.testFramework.LightVirtualFile
+import dev.knthmn.herdr.model.Program
 import javax.swing.Icon
 
 /** An hc terminal shown in the editor area. */
 class AgentTerminalFile(
     val address: String,
-    val agent: String?,
+    val program: Program,
     val tab: TerminalToolWindowTab,
     name: String,
 ) : LightVirtualFile(name) {

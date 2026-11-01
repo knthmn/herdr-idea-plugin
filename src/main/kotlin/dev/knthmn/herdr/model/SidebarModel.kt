@@ -14,7 +14,7 @@ enum class AgentState(val text: String) {
 
 data class Row(
     val address: String,
-    val agent: String?,
+    val program: Program,
     val label: String,
     val detail: String,
     val state: AgentState,
@@ -54,10 +54,15 @@ data class SidebarModel(val rows: List<Row>) {
 
             fun row(t: Terminal): Row {
                 val cwd = t.foreground?.cwd ?: t.cwd
+                val program =
+                    Programs.of(
+                        t.status?.app,
+                        t.foreground?.argv?.takeIf { it.isNotEmpty() } ?: t.argv,
+                    )
                 return Row(
                     address = t.address,
-                    agent = agent(t),
-                    label = label(t),
+                    program = program,
+                    label = label(t, program),
                     detail = detail(normalize(cwd), normalRoot),
                     state = state(t, readAt(t.address)),
                     message = t.status?.msg,
@@ -90,17 +95,10 @@ data class SidebarModel(val rows: List<Row>) {
 
         private val byRecent = compareByDescending<Terminal> { it.statusMs ?: it.createdMs ?: 0 }
 
-        private fun agent(t: Terminal): String? =
-            t.status?.app?.takeIf { it.isNotBlank() }
-                ?: t.foreground?.argv?.firstOrNull()?.substringAfterLast('/')?.takeIf {
-                    it.isNotBlank()
-                }
-
-        private fun label(t: Terminal): String =
+        private fun label(t: Terminal, program: Program): String =
             t.name?.takeIf { it.isNotBlank() }
                 ?: t.title?.takeIf { it.isNotBlank() }
-                ?: t.foreground?.name?.takeIf { it.isNotBlank() }
-                ?: t.address
+                ?: program.name
 
         private fun detail(cwd: Path, root: Path): String =
             when {

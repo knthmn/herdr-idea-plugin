@@ -47,7 +47,7 @@ class SidebarModelTest {
             )
         assertEquals(listOf("t1", "t4"), model.rows.map { it.address })
         val lead = model.rows.first()
-        assertEquals("pi", lead.agent)
+        assertEquals("pi", lead.program.key)
         assertEquals("t2", lead.children.single().address)
         assertEquals("t3", lead.children.single().children.single().address)
         assertEquals(".dev/worktrees/x", lead.children.single().detail)
@@ -122,6 +122,6 @@ class SidebarModelTest {
                 ),
                 root,
             )
-        assertEquals(listOf("review", "pi title", "node"), model.rows.map { it.label })
+        assertEquals(listOf("review", "pi title", "Pi"), model.rows.map { it.label })
     }
 }

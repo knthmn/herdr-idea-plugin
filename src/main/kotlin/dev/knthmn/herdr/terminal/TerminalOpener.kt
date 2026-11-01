@@ -40,7 +40,7 @@ class TerminalOpener(private val project: Project) {
                 .requestFocus(false)
                 .createTab()
         manager.detachTab(tab)
-        val file = AgentTerminalFile(row.address, row.agent, tab, tabName(row))
+        val file = AgentTerminalFile(row.address, row.program, tab, tabName(row))
         files[row.address] = file
         editors.openFile(file, true)
     }

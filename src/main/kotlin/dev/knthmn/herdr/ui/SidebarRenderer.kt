@@ -21,7 +21,7 @@ class SidebarRenderer : ColoredTreeCellRenderer() {
         hasFocus: Boolean,
     ) {
         val item = (value as? DefaultMutableTreeNode)?.userObject as? Row ?: return
-        icon = StatusIcon.badged(AgentIcons.of(item.agent), item.state)
+        icon = StatusIcon.badged(ProgramIcons.of(item.program), item.state)
         val emphasis =
             when (item.state) {
                 AgentState.UNREAD,

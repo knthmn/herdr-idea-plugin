@@ -15,6 +15,7 @@ data class Terminal(
     val name: String? = null,
     val title: String? = null,
     val cwd: String = "",
+    val argv: List<String> = emptyList(),
     val foreground: Foreground? = null,
     val parent: String? = null,
     val state: String = "live",
