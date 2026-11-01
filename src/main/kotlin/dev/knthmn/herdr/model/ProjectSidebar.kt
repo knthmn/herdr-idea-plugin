@@ -1,9 +1,11 @@
 package dev.knthmn.herdr.model
 
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
+import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.project.Project
 import dev.knthmn.herdr.core.CoreState
 import dev.knthmn.herdr.core.HcClient
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 sealed interface SidebarState {
     data object NotFound : SidebarState
@@ -64,6 +67,36 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
                 SharingStarted.WhileSubscribed(STOP_TIMEOUT.inWholeMilliseconds),
                 SidebarState.Connecting,
             )
+
+    @Volatile private var rows: Map<String, Row> = emptyMap()
+
+    init {
+        cs.launch(Dispatchers.EDT) { state.collect(::refreshTabs) }
+    }
+
+    /** The latest row of [address], if it is in this project. */
+    fun row(address: String): Row? = rows[address]
+
+    /** Redraws the editor tabs whose icon or status changed. */
+    private fun refreshTabs(state: SidebarState) {
+        val next =
+            (state as? SidebarState.Ready)?.model?.rows.orEmpty().flatMap(::flatten).associateBy {
+                it.address
+            }
+        val previous = rows
+        rows = next
+        val editors = FileEditorManagerEx.getInstanceEx(project)
+        editors.openFiles
+            .filterIsInstance<AgentTerminalFile>()
+            .filter { file ->
+                val before = previous[file.address]
+                val after = next[file.address]
+                before?.state != after?.state || before?.program != after?.program
+            }
+            .forEach(editors::updateFilePresentation)
+    }
+
+    private fun flatten(row: Row): List<Row> = listOf(row) + row.children.flatMap(::flatten)
 
     private fun select(address: String?) {
         selected = address
