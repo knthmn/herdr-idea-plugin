@@ -7,4 +7,12 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable
+                parentId="tools"
+                instance="dev.knthmn.herdr.settings.HerdrConfigurable"
+                id="dev.knthmn.herdr.settings"
+                displayName="Herdr"/>
+    </extensions>
 </idea-plugin>
