@@ -1,0 +1,10 @@
+<idea-plugin>
+    <id>dev.knthmn.herdr-idea-plugin</id>
+    <name>Herdr</name>
+    <vendor>knthmn</vendor>
+    <description><![CDATA[
+        <p>Shows herdr-core terminals of the current project and opens them in the IDE terminal.</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+</idea-plugin>
