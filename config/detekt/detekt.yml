@@ -1,3 +1,5 @@
 style:
   MaxLineLength:
     active: false
+  ReturnCount:
+    excludeGuardClauses: true

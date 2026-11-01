@@ -6,10 +6,16 @@ import com.intellij.openapi.ui.DialogPanel
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
+import dev.knthmn.herdr.core.HcClient
 import dev.knthmn.herdr.core.HcLocator
 
 class HerdrConfigurable : BoundConfigurable("Herdr") {
     private val settings = HerdrSettings.getInstance()
+
+    override fun apply() {
+        super.apply()
+        HcClient.getInstance().restart()
+    }
 
     override fun createPanel(): DialogPanel = panel {
         row("hc executable:") {
