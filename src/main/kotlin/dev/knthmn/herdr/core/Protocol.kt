@@ -23,7 +23,12 @@ data class Terminal(
     @SerialName("created_ms") val createdMs: Long? = null,
 )
 
-@Serializable data class Foreground(val name: String? = null, val cwd: String? = null)
+@Serializable
+data class Foreground(
+    val name: String? = null,
+    val cwd: String? = null,
+    val argv: List<String> = emptyList(),
+)
 
 @Serializable
 data class Status(

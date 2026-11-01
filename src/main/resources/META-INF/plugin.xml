@@ -7,8 +7,18 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <toolWindow
+                id="Herdr"
+                anchor="right"
+                icon="/icons/herdr.svg"
+                factoryClass="dev.knthmn.herdr.ui.HerdrToolWindowFactory"/>
+        <fileIconProvider
+                order="first"
+                implementation="dev.knthmn.herdr.terminal.AgentFileIconProvider"/>
+        <fileEditorProvider implementation="dev.knthmn.herdr.terminal.AgentTerminalEditorProvider"/>
         <applicationConfigurable
                 parentId="tools"
                 instance="dev.knthmn.herdr.settings.HerdrConfigurable"
