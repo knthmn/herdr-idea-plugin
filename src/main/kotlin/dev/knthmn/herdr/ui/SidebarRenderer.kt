@@ -1,5 +1,6 @@
 package dev.knthmn.herdr.ui
 
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.SimpleTextAttributes
@@ -20,16 +21,31 @@ class SidebarRenderer : ColoredTreeCellRenderer() {
         row: Int,
         hasFocus: Boolean,
     ) {
-        val item = (value as? DefaultMutableTreeNode)?.userObject as? Row ?: return
-        icon = StatusIcon.badged(ProgramIcons.of(item.program), item.state)
+        val node = (value as? DefaultMutableTreeNode)?.userObject
+        if (node is FinishedGroup) {
+            icon = null
+            append("Finished", SimpleTextAttributes.GRAYED_BOLD_ATTRIBUTES)
+            append("  ${node.count}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            toolTipText = null
+            return
+        }
+        val item = node as? Row ?: return
+        val programIcon = ProgramIcons.of(item.program)
+        icon =
+            if (item.finished) IconLoader.getDisabledIcon(programIcon)
+            else StatusIcon.badged(programIcon, item.state)
         val emphasis =
             when (item.state) {
                 AgentState.UNREAD,
                 AgentState.BLOCKED,
                 AgentState.ERROR -> SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+                AgentState.FINISHED -> SimpleTextAttributes.GRAYED_ATTRIBUTES
                 else -> SimpleTextAttributes.REGULAR_ATTRIBUTES
             }
         append(item.label, emphasis)
+        if (item.finished) {
+            append("  ${item.message}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+        }
         if (item.detail.isNotEmpty()) {
             append("  ${item.detail}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
         }

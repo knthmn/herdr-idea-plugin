@@ -45,14 +45,12 @@ class TerminalOpener(private val project: Project) {
         editors.openFile(file, true)
     }
 
-    private fun tabName(row: Row): String = row.label.take(MAX_TAB_NAME)
+    private fun tabName(row: Row): String = row.label.take(AgentTabTitleProvider.MAX_LENGTH)
 
     private fun workingDirectory(cwd: String): String? =
         cwd.takeIf { it.isNotEmpty() && Files.isDirectory(Path.of(it)) } ?: project.basePath
 
     companion object {
-        private const val MAX_TAB_NAME = 40
-
         fun getInstance(project: Project): TerminalOpener = project.service()
     }
 }

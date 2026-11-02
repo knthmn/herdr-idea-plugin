@@ -10,8 +10,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 /**
- * Live terminals of the local core, kept as raw JSON so that partial event data can be merged
- * without knowing every field.
+ * Terminals of the local core, live and finished until removed, kept as raw JSON so that partial
+ * event data can be merged without knowing every field.
  */
 class TerminalTable private constructor(val seq: Long, private val raw: Map<String, JsonObject>) {
 
@@ -30,7 +30,6 @@ class TerminalTable private constructor(val seq: Long, private val raw: Map<Stri
         val next = raw.toMutableMap()
         when (type) {
             "created" -> next[address] = data
-            "finished",
             "removed" -> next.remove(address)
             else -> {
                 val current = next[address]
@@ -44,6 +43,7 @@ class TerminalTable private constructor(val seq: Long, private val raw: Map<Stri
         when (type) {
             "foreground" -> mapOf("foreground" to data)
             "status" -> data + ("status_ms" to JsonPrimitive(nowMs))
+            "finished" -> data + ("state" to JsonPrimitive("finished"))
             else -> data
         }
 
@@ -55,7 +55,6 @@ class TerminalTable private constructor(val seq: Long, private val raw: Map<Stri
             val raw =
                 terminals
                     .map { it.jsonObject }
-                    .filter { it["state"]?.jsonPrimitive?.contentOrNull != "finished" }
                     .mapNotNull { obj ->
                         obj["address"]?.jsonPrimitive?.contentOrNull?.takeIf(::isLocal)?.let {
                             it to obj

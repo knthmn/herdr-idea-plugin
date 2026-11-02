@@ -3,7 +3,8 @@
     <name>Herdr</name>
     <vendor>knthmn</vendor>
     <description><![CDATA[
-        <p>Shows herdr-core terminals of the current project and opens them in the IDE terminal.</p>
+        <p>Shows herdr-core terminals of the current project and opens them in editor tabs.</p>
+        <p>A personal tool. Resume, session titles and the blocked state need an agent integration that writes terminal labels. Not for publication.</p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -19,6 +20,8 @@
                 order="first"
                 implementation="dev.knthmn.herdr.terminal.AgentFileIconProvider"/>
         <fileEditorProvider implementation="dev.knthmn.herdr.terminal.AgentTerminalEditorProvider"/>
+        <editorTabTitleProvider implementation="dev.knthmn.herdr.terminal.AgentTabTitleProvider"/>
+        <notificationGroup id="Herdr" displayType="BALLOON"/>
         <applicationConfigurable
                 parentId="tools"
                 instance="dev.knthmn.herdr.settings.HerdrConfigurable"

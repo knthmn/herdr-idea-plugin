@@ -1,11 +1,13 @@
 package dev.knthmn.herdr.ui
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.Disposer
+import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.treeStructure.Tree
@@ -14,6 +16,7 @@ import dev.knthmn.herdr.model.Row
 import dev.knthmn.herdr.model.SidebarModel
 import dev.knthmn.herdr.model.SidebarState
 import dev.knthmn.herdr.settings.HerdrConfigurable
+import dev.knthmn.herdr.terminal.SessionActions
 import dev.knthmn.herdr.terminal.TerminalOpener
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
@@ -31,6 +34,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
+/** The tree node that holds finished terminals. */
+data class FinishedGroup(val count: Int)
+
 class SidebarPanel(private val project: Project, parent: Disposable) :
     SimpleToolWindowPanel(true, true), Disposable {
     private val root = DefaultMutableTreeNode()
@@ -39,6 +45,8 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.EDT)
     private val ageTimer = Timer(AGE_REFRESH_MS) { tree.repaint() }
     private var hc: Path? = null
+    private var finishedExpanded = false
+    private val actions = SidebarActions(project, ::selectedRow)
 
     init {
         Disposer.register(parent, this)
@@ -61,13 +69,27 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
                 }
             }
         )
+        PopupHandler.installPopupMenu(tree, actions.popup(), POPUP_PLACE)
+        toolbar =
+            ActionManager.getInstance()
+                .createActionToolbar(TOOLBAR_PLACE, actions.toolbar(), true)
+                .apply { targetComponent = tree }
+                .component
         setContent(ScrollPaneFactory.createScrollPane(tree, true))
         ageTimer.start()
         scope.launch { ProjectSidebar.getInstance(project).state.collect(::render) }
     }
 
+    private fun selectedRow(): Row? =
+        (tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? Row
+
     private fun open(path: TreePath) {
         val row = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? Row ?: return
+        if (row.canResume) {
+            SessionActions.getInstance(project).resume(row)
+            return
+        }
+        if (row.finished) return
         val hc = hc ?: return
         TerminalOpener.getInstance(project).open(hc, row)
     }
@@ -98,7 +120,12 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
                 text.appendLine(state.reason, SimpleTextAttributes.GRAYED_ATTRIBUTES, null)
             }
             SidebarState.NoProject -> text.appendLine("No project folder")
-            is SidebarState.Ready -> text.appendLine("No terminals in this project")
+            is SidebarState.Ready -> {
+                text.appendLine("No terminals in this project")
+                text.appendLine("Start a terminal", SimpleTextAttributes.LINK_ATTRIBUTES) {
+                    SessionActions.getInstance(project).newSession(null)
+                }
+            }
         }
     }
 
@@ -107,27 +134,44 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         val selected =
             tree.selectionPath?.let { key(it.lastPathComponent as DefaultMutableTreeNode) }
         visit(root) { node ->
-            if (node.childCount > 0 && !tree.isExpanded(TreePath(node.path))) collapsed += key(node)
+            val expanded = tree.isExpanded(TreePath(node.path))
+            if (node.childCount > 0 && !expanded) collapsed += key(node)
+            if (node.userObject is FinishedGroup) finishedExpanded = expanded
         }
 
         root.removeAllChildren()
         model.rows.forEach { root.add(rowNode(it)) }
+        finishedNode(model)?.let(root::add)
         treeModel.reload()
 
         visit(root) { node ->
             val path = TreePath(node.path)
-            if (node !== root && node.childCount > 0 && key(node) !in collapsed)
-                tree.expandPath(path)
+            val expand =
+                if (node.userObject is FinishedGroup) finishedExpanded else key(node) !in collapsed
+            if (node !== root && node.childCount > 0 && expand) tree.expandPath(path)
             if (selected != null && node !== root && key(node) == selected)
                 tree.selectionPath = path
         }
     }
 
+    private fun finishedNode(model: SidebarModel): DefaultMutableTreeNode? =
+        model.finished
+            .takeIf { it.isNotEmpty() }
+            ?.let { rows ->
+                DefaultMutableTreeNode(FinishedGroup(rows.size)).apply {
+                    rows.forEach { add(DefaultMutableTreeNode(it)) }
+                }
+            }
+
     private fun rowNode(row: Row): DefaultMutableTreeNode =
         DefaultMutableTreeNode(row).apply { row.children.forEach { add(rowNode(it)) } }
 
     private fun key(node: DefaultMutableTreeNode): String =
-        (node.userObject as? Row)?.address.orEmpty()
+        when (val item = node.userObject) {
+            is Row -> item.address
+            is FinishedGroup -> FINISHED_KEY
+            else -> ""
+        }
 
     private fun visit(node: DefaultMutableTreeNode, action: (DefaultMutableTreeNode) -> Unit) {
         action(node)
@@ -141,5 +185,8 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
 
     companion object {
         private const val AGE_REFRESH_MS = 30_000
+        private const val TOOLBAR_PLACE = "HerdrSidebarToolbar"
+        private const val POPUP_PLACE = "HerdrSidebarPopup"
+        private const val FINISHED_KEY = "#finished"
     }
 }

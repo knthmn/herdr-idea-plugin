@@ -9,6 +9,7 @@ import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.project.Project
 import dev.knthmn.herdr.core.CoreState
 import dev.knthmn.herdr.core.HcClient
+import dev.knthmn.herdr.core.Terminal
 import dev.knthmn.herdr.terminal.AgentTerminalFile
 import java.io.IOException
 import java.nio.file.Path
@@ -60,7 +61,12 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
     }
 
     val state: StateFlow<SidebarState> =
-        combine(HcClient.getInstance().state, readState.readAt, ::toSidebarState)
+        combine(
+                HcClient.getInstance().state,
+                readState.readAt,
+                WorktreeRoots.getInstance(project).roots,
+                ::toSidebarState,
+            )
             .flowOn(Dispatchers.Default)
             .stateIn(
                 cs,
@@ -77,12 +83,22 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
     /** The latest row of [address], if it is in this project. */
     fun row(address: String): Row? = rows[address]
 
+    /** The latest terminal [address] of the core, in this project or not. */
+    fun terminal(address: String): Terminal? =
+        (HcClient.getInstance().state.value as? CoreState.Connected)?.table?.terminals?.find {
+            it.address == address
+        }
+
+    fun isLive(address: String): Boolean = terminal(address)?.finished == false
+
     /** Redraws the editor tabs whose icon or status changed. */
     private fun refreshTabs(state: SidebarState) {
         val next =
-            (state as? SidebarState.Ready)?.model?.rows.orEmpty().flatMap(::flatten).associateBy {
-                it.address
-            }
+            (state as? SidebarState.Ready)
+                ?.model
+                ?.let { it.rows.flatMap(::flatten) + it.finished }
+                .orEmpty()
+                .associateBy { it.address }
         val previous = rows
         rows = next
         val editors = FileEditorManagerEx.getInstanceEx(project)
@@ -91,7 +107,9 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
             .filter { file ->
                 val before = previous[file.address]
                 val after = next[file.address]
-                before?.state != after?.state || before?.program != after?.program
+                before?.state != after?.state ||
+                    before?.program != after?.program ||
+                    before?.label != after?.label
             }
             .forEach(editors::updateFilePresentation)
     }
@@ -103,13 +121,16 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
         address?.let(readState::markRead)
     }
 
-    private fun toSidebarState(core: CoreState, readAt: Map<String, Long>): SidebarState {
-        val root = project.basePath
+    private fun toSidebarState(
+        core: CoreState,
+        readAt: Map<String, Long>,
+        roots: List<Root>,
+    ): SidebarState {
         return when {
             core is CoreState.NotFound -> SidebarState.NotFound
             core is CoreState.Connecting -> SidebarState.Connecting
             core is CoreState.Disconnected -> SidebarState.Disconnected(core.reason)
-            root == null -> SidebarState.NoProject
+            roots.isEmpty() -> SidebarState.NoProject
             core is CoreState.Connected -> {
                 val terminals = core.table.terminals
                 readState.retain(terminals.mapTo(HashSet()) { it.address })
@@ -120,7 +141,7 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
                     }
                 SidebarState.Ready(
                     core.hc,
-                    SidebarModel.build(terminals, Path.of(root), readAt::get, ::realPath),
+                    SidebarModel.build(terminals, roots, readAt::get, ::realPath),
                 )
             }
             else -> SidebarState.Connecting

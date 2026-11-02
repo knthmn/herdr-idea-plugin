@@ -3,6 +3,7 @@ package dev.knthmn.herdr.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
@@ -21,10 +22,10 @@ class TerminalTableTest {
         )
 
     @Test
-    fun `snapshot keeps live local terminals only`() {
+    fun `snapshot keeps local terminals only`() {
         val table = TerminalTable.fromSnapshot(snapshot)!!
         assertEquals(10, table.seq)
-        assertEquals(listOf("t1"), table.terminals.map { it.address })
+        assertEquals(listOf("t1", "t2"), table.terminals.map { it.address })
     }
 
     @Test
@@ -50,8 +51,21 @@ class TerminalTableTest {
 
         table =
             table.apply(
-                obj("""{"type":"finished","terminal":"t22","seq":15,"data":{"exit_code":0}}"""),
+                obj(
+                    """{"type":"finished","terminal":"t22","seq":15,"data":{"exit_code":0,"reason":"exited","finished_ms":7}}"""
+                ),
                 nowMs = 100,
+            )
+        val finished = table.terminals.single { it.address == "t22" }
+        assertTrue(finished.finished)
+        assertEquals(0, finished.exitCode)
+        assertEquals(7, finished.finishedMs)
+        assertEquals("hello", finished.title)
+
+        table =
+            table.apply(
+                obj("""{"type":"removed","terminal":"t22","seq":16,"data":{}}"""),
+                nowMs = 101,
             )
         assertNull(table.terminals.find { it.address == "t22" })
     }
@@ -68,7 +82,25 @@ class TerminalTableTest {
                 ),
                 nowMs = 0,
             )
-        assertEquals(listOf("t1"), stale.terminals.map { it.address })
-        assertEquals(listOf("t1"), remote.terminals.map { it.address })
+        assertEquals(listOf("t1", "t2"), stale.terminals.map { it.address })
+        assertEquals(listOf("t1", "t2"), remote.terminals.map { it.address })
+    }
+
+    @Test
+    fun `labels event replaces the labels`() {
+        var table = TerminalTable.fromSnapshot(snapshot)!!
+        table =
+            table.apply(
+                obj(
+                    """{"type":"labels","terminal":"t1","seq":11,"data":{"labels":{"a":"1","b":"2"}}}"""
+                ),
+                nowMs = 0,
+            )
+        table =
+            table.apply(
+                obj("""{"type":"labels","terminal":"t1","seq":12,"data":{"labels":{"b":"2"}}}"""),
+                nowMs = 0,
+            )
+        assertEquals(mapOf("b" to "2"), table.terminals.single { it.address == "t1" }.labels)
     }
 }

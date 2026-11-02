@@ -22,7 +22,17 @@ data class Terminal(
     val status: Status? = null,
     @SerialName("status_ms") val statusMs: Long? = null,
     @SerialName("created_ms") val createdMs: Long? = null,
-)
+    val labels: Map<String, String> = emptyMap(),
+    val keep: Boolean = false,
+    @SerialName("die_with_parent") val dieWithParent: Boolean = false,
+    @SerialName("exit_code") val exitCode: Int? = null,
+    val signal: Int? = null,
+    val reason: String? = null,
+    @SerialName("finished_ms") val finishedMs: Long? = null,
+) {
+    val finished: Boolean
+        get() = state == "finished"
+}
 
 @Serializable
 data class Foreground(
