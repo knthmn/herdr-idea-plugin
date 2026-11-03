@@ -12,9 +12,9 @@ import java.nio.file.Path
 import org.jetbrains.plugins.terminal.startup.TerminalProcessType
 
 /**
- * Opens one editor tab per hc terminal, running `hc attach` directly. Like the IDE's "Move to
- * Editor" action, it creates a terminal tab, detaches it from the tool window, and shows it in an
- * editor.
+ * Opens one editor tab per hc terminal, running `hc attach` through [AttachHelper]. Like the IDE's
+ * "Move to Editor" action, it creates a terminal tab, detaches it from the tool window, and shows
+ * it in an editor.
  */
 @Service(Service.Level.PROJECT)
 class TerminalOpener(private val project: Project) {
@@ -32,7 +32,7 @@ class TerminalOpener(private val project: Project) {
         val tab =
             manager
                 .createTabBuilder()
-                .shellCommand(listOf(hc.toString(), "attach", row.address))
+                .shellCommand(AttachHelper.attachCommand(hc, row.address))
                 .processType(TerminalProcessType.NON_SHELL)
                 .workingDirectory(workingDirectory(row.cwd))
                 .tabName(tabName(row))

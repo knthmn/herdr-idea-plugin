@@ -52,3 +52,59 @@ detekt {
 tasks.test {
     useJUnitPlatform()
 }
+
+val helperPlatforms =
+    mapOf(
+        "aarch64-apple-darwin" to "darwin-aarch64",
+        "x86_64-apple-darwin" to "darwin-x86_64",
+        "aarch64-unknown-linux-gnu" to "linux-aarch64",
+        "x86_64-unknown-linux-gnu" to "linux-x86_64",
+    )
+val helperTargets =
+    providers
+        .gradleProperty("helperTargets")
+        .get()
+        .split(",")
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+val cargoDir = layout.buildDirectory.dir("cargo")
+
+val helperBuilds = helperTargets.map { target ->
+    val platform =
+        helperPlatforms[target] ?: error("Unknown helper target $target in helperTargets")
+    platform to
+        tasks.register<Exec>("buildHelper-$platform") {
+            group = "build"
+            description = "Builds the herdr-attach helper for $target."
+            workingDir = file("helper")
+            commandLine(
+                "cargo",
+                "build",
+                "--release",
+                "--locked",
+                "--target",
+                target,
+                "--target-dir",
+                cargoDir.get().asFile.path,
+            )
+            inputs.dir("helper/src")
+            inputs.files("helper/Cargo.toml", "helper/Cargo.lock")
+            outputs.file(cargoDir.map { it.file("$target/release/herdr-attach") })
+        }
+}
+
+val testHelper by
+    tasks.registering(Exec::class) {
+        group = "verification"
+        description = "Runs the herdr-attach helper tests."
+        workingDir = file("helper")
+        commandLine("cargo", "test", "--locked", "--target-dir", cargoDir.get().asFile.path)
+    }
+
+tasks.check { dependsOn(testHelper) }
+
+tasks.prepareSandbox {
+    helperBuilds.forEach { (platform, build) ->
+        from(build) { into(pluginName.map { "$it/bin/$platform" }) }
+    }
+}
