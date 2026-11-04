@@ -30,6 +30,8 @@ import kotlinx.serialization.json.jsonPrimitive
 sealed interface CoreState {
     data object NotFound : CoreState
 
+    data class Unsupported(val version: HcVersion) : CoreState
+
     data object Connecting : CoreState
 
     data class Disconnected(val reason: String) : CoreState
@@ -66,9 +68,14 @@ class HcClient(private val cs: CoroutineScope) {
         val job = currentCoroutineContext()[Job]!!
         var backoff = MIN_BACKOFF
         while (currentCoroutineContext().isActive) {
-            val hc = HcLocator.locate(HerdrSettings.getInstance().hcPath)
+            val hc =
+                when (val health = HcLocator.health(HerdrSettings.getInstance().hcPath)) {
+                    HcHealth.Missing -> null.also { publish(job, CoreState.NotFound) }
+                    is HcHealth.Unsupported ->
+                        null.also { publish(job, CoreState.Unsupported(health.version)) }
+                    is HcHealth.Usable -> health.hc
+                }
             if (hc == null) {
-                publish(job, CoreState.NotFound)
                 delay(NOT_FOUND_RETRY)
                 continue
             }

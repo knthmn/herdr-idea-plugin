@@ -22,6 +22,7 @@
         <fileEditorProvider implementation="dev.knthmn.herdr.terminal.AgentTerminalEditorProvider"/>
         <editorTabTitleProvider implementation="dev.knthmn.herdr.terminal.AgentTabTitleProvider"/>
         <notificationGroup id="Herdr" displayType="BALLOON"/>
+        <postStartupActivity implementation="dev.knthmn.herdr.startup.HerdrStartupActivity"/>
         <applicationConfigurable
                 parentId="tools"
                 instance="dev.knthmn.herdr.settings.HerdrConfigurable"
@@ -34,4 +35,10 @@
                 displayName="Scope"
                 nonDefaultProject="true"/>
     </extensions>
+
+    <projectListeners>
+        <listener
+                class="dev.knthmn.herdr.ui.HerdrToolWindowListener"
+                topic="com.intellij.openapi.wm.ex.ToolWindowManagerListener"/>
+    </projectListeners>
 </idea-plugin>

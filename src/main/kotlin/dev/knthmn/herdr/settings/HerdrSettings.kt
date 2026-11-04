@@ -26,6 +26,10 @@ class HerdrSettingsState : BaseState() {
     var showAge by property(true)
     var groupByFolder by property(false)
     var sortOrder by string(SortOrder.RECENT.name)
+    var checkUpdates by property(true)
+    var latestVersion by string("")
+    var lastCheckMillis by property(0L)
+    var skippedVersion by string("")
 
     private fun key(default: String) = property(default) { it == default }
 }
@@ -112,6 +116,32 @@ class HerdrSettings : SimplePersistentStateComponent<HerdrSettingsState>(HerdrSe
 
     val viewOptions: ViewOptions
         get() = ViewOptions(groupByFolder, sortOrder)
+
+    var checkUpdates: Boolean
+        get() = state.checkUpdates
+        set(value) {
+            state.checkUpdates = value
+        }
+
+    /** The latest herdr-core release at [lastCheckMillis]. */
+    var latestVersion: String
+        get() = state.latestVersion.orEmpty()
+        set(value) {
+            state.latestVersion = value
+        }
+
+    var lastCheckMillis: Long
+        get() = state.lastCheckMillis
+        set(value) {
+            state.lastCheckMillis = value
+        }
+
+    /** The release for which the user turned off the update notification. */
+    var skippedVersion: String
+        get() = state.skippedVersion.orEmpty()
+        set(value) {
+            state.skippedVersion = value
+        }
 
     val labelKeys: LabelKeys
         get() = LabelKeys(resumeLabel, titleLabel, blockedLabel)

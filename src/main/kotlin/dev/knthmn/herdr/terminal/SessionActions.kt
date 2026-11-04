@@ -11,6 +11,7 @@ import com.intellij.openapi.util.text.StringUtil
 import dev.knthmn.herdr.core.HcCommands
 import dev.knthmn.herdr.core.HcException
 import dev.knthmn.herdr.core.HcLocator
+import dev.knthmn.herdr.core.HcStatusService
 import dev.knthmn.herdr.model.Agent
 import dev.knthmn.herdr.model.Launchers
 import dev.knthmn.herdr.model.ProjectSidebar
@@ -149,11 +150,12 @@ class SessionActions(private val project: Project, private val cs: CoroutineScop
     }
 
     private suspend fun report(failure: String, block: suspend () -> Unit) {
+        if (!HcStatusService.getInstance().ensureUsable(project)) return
         try {
             block()
         } catch (e: HcException) {
             NotificationGroupManager.getInstance()
-                .getNotificationGroup(NOTIFICATIONS)
+                .getNotificationGroup(HcStatusService.NOTIFICATIONS)
                 .createNotification(
                     StringUtil.escapeXmlEntities(failure),
                     StringUtil.escapeXmlEntities(e.message.orEmpty()),
@@ -180,7 +182,6 @@ class SessionActions(private val project: Project, private val cs: CoroutineScop
     }
 
     companion object {
-        const val NOTIFICATIONS = "Herdr"
         private val OPEN_TIMEOUT = 5.seconds
         private val FINISH_TIMEOUT = 5.seconds
         private val POLL = 100.milliseconds

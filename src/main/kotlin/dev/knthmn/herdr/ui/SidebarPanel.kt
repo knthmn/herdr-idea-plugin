@@ -16,6 +16,8 @@ import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.treeStructure.Tree
+import dev.knthmn.herdr.core.HcStatusService
+import dev.knthmn.herdr.core.HcVersion
 import dev.knthmn.herdr.model.FolderGroup
 import dev.knthmn.herdr.model.ProjectSidebar
 import dev.knthmn.herdr.model.Row
@@ -137,7 +139,12 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
             return
         }
         if (row.finished) return
-        val hc = hc ?: return
+        val hc =
+            hc
+                ?: run {
+                    HcStatusService.getInstance().onUse(project)
+                    return
+                }
         TerminalOpener.getInstance(project).open(hc, row)
     }
 
@@ -157,8 +164,16 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
                     "Install herdr-core or set the path",
                     SimpleTextAttributes.LINK_ATTRIBUTES,
                 ) {
-                    ShowSettingsUtil.getInstance()
-                        .showSettingsDialog(project, HerdrConfigurable::class.java)
+                    showSettings()
+                }
+            }
+            is SidebarState.Unsupported -> {
+                text.appendLine("herdr-core ${state.version} is too old")
+                text.appendLine(
+                    "Update to ${HcVersion.MINIMUM} or later",
+                    SimpleTextAttributes.LINK_ATTRIBUTES,
+                ) {
+                    showSettings()
                 }
             }
             SidebarState.Connecting -> text.appendLine("Connecting to herdr-core…")
@@ -174,6 +189,10 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
                 }
             }
         }
+    }
+
+    private fun showSettings() {
+        ShowSettingsUtil.getInstance().showSettingsDialog(project, HerdrConfigurable::class.java)
     }
 
     private fun update(model: SidebarModel) {

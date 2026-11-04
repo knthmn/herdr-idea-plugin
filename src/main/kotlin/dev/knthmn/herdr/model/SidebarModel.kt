@@ -1,5 +1,6 @@
 package dev.knthmn.herdr.model
 
+import dev.knthmn.herdr.core.HcLocator
 import dev.knthmn.herdr.core.Terminal
 import java.nio.file.Path
 
@@ -216,7 +217,7 @@ data class SidebarModel(
 
         private fun location(path: Path, project: Path?): String =
             if (project != null && path.startsWith(project)) project.relativize(path).toString()
-            else abbreviateHome(path.toString())
+            else HcLocator.abbreviateHome(path.toString())
 
         private fun trimDetail(row: Row, folder: Path?, folderOf: (Row) -> Path?): Row =
             row.copy(
@@ -307,13 +308,7 @@ data class SidebarModel(
                 val sub = worktree.path.relativize(cwd).toString()
                 return if (sub.isEmpty()) name else "$name/$sub"
             }
-            return abbreviateHome(cwd.toString())
-        }
-
-        private fun abbreviateHome(path: String): String {
-            val home = System.getProperty("user.home")
-            return if (path == home || path.startsWith("$home/")) "~" + path.removePrefix(home)
-            else path
+            return HcLocator.abbreviateHome(cwd.toString())
         }
     }
 }

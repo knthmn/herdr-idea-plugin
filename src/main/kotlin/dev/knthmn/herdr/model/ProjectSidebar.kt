@@ -9,6 +9,7 @@ import com.intellij.openapi.fileEditor.ex.FileEditorManagerEx
 import com.intellij.openapi.project.Project
 import dev.knthmn.herdr.core.CoreState
 import dev.knthmn.herdr.core.HcClient
+import dev.knthmn.herdr.core.HcVersion
 import dev.knthmn.herdr.core.Terminal
 import dev.knthmn.herdr.settings.HerdrSettings
 import dev.knthmn.herdr.terminal.AgentTerminalFile
@@ -27,6 +28,8 @@ import kotlinx.coroutines.launch
 
 sealed interface SidebarState {
     data object NotFound : SidebarState
+
+    data class Unsupported(val version: HcVersion) : SidebarState
 
     data object Connecting : SidebarState
 
@@ -134,6 +137,7 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
     ): SidebarState {
         return when {
             core is CoreState.NotFound -> SidebarState.NotFound
+            core is CoreState.Unsupported -> SidebarState.Unsupported(core.version)
             core is CoreState.Connecting -> SidebarState.Connecting
             core is CoreState.Disconnected -> SidebarState.Disconnected(core.reason)
             roots.isEmpty() -> SidebarState.NoProject

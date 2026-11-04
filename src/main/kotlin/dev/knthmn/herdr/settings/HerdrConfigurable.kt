@@ -1,18 +1,15 @@
 package dev.knthmn.herdr.settings
 
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.ui.SimpleListCellRenderer
-import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.Panel
 import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
 import dev.knthmn.herdr.core.HcClient
-import dev.knthmn.herdr.core.HcLocator
 import dev.knthmn.herdr.model.Launchers
 import dev.knthmn.herdr.ui.ProgramIcons
 import javax.swing.Icon
@@ -20,6 +17,7 @@ import javax.swing.JList
 
 class HerdrConfigurable : BoundConfigurable("Herdr") {
     private val settings = HerdrSettings.getInstance()
+    private val core = CoreSection(settings)
 
     private data class Choice(val key: String, val name: String, val icon: Icon)
 
@@ -28,6 +26,7 @@ class HerdrConfigurable : BoundConfigurable("Herdr") {
         super.apply()
         if (settings.hcPath != hcPath) HcClient.getInstance().restart()
         settings.changed()
+        core.refresh(force = false)
     }
 
     override fun createPanel(): DialogPanel {
@@ -41,14 +40,20 @@ class HerdrConfigurable : BoundConfigurable("Herdr") {
                     )
                 }
         return panel {
-            row("hc executable:") {
-                textFieldWithBrowseButton(
-                        FileChooserDescriptorFactory.singleFile().withTitle("Select hc Executable")
-                    )
-                    .bindText(settings::hcPath)
-                    .align(AlignX.FILL)
-                    .comment("Leave empty to search PATH, then ${HcLocator.DEFAULT_PATH_HINT}.")
-            }
+            core.build(this)
+            sessionsGroup(choices)
+            sidebarGroup()
+            labelsGroup()
+        }
+    }
+
+    override fun disposeUIResources() {
+        core.dispose()
+        super.disposeUIResources()
+    }
+
+    private fun Panel.sessionsGroup(choices: List<Choice>) {
+        group("Sessions") {
             row("Default agent:") {
                 comboBox(
                         choices,
@@ -60,8 +65,16 @@ class HerdrConfigurable : BoundConfigurable("Herdr") {
                     )
                     .comment("Started by the first button of the sidebar toolbar.")
             }
-            sidebarGroup()
-            labelsGroup()
+            row {
+                checkBox("Double-click or Enter on a resumable row resumes it")
+                    .bindSelected(settings::resumeOnClick)
+                    .comment(
+                        "When off, it opens a live terminal and does nothing for a finished one."
+                    )
+            }
+            row {
+                checkBox("Confirm before Finish and Delete").bindSelected(settings::confirmEnd)
+            }
         }
     }
 
@@ -73,16 +86,6 @@ class HerdrConfigurable : BoundConfigurable("Herdr") {
             row {
                 checkBox("Show the time since the last status change")
                     .bindSelected(settings::showAge)
-            }
-            row {
-                checkBox("Double-click or Enter on a resumable row resumes it")
-                    .bindSelected(settings::resumeOnClick)
-                    .comment(
-                        "When off, it opens a live terminal and does nothing for a finished one."
-                    )
-            }
-            row {
-                checkBox("Confirm before Finish and Delete").bindSelected(settings::confirmEnd)
             }
         }
     }
