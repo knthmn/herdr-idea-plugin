@@ -37,6 +37,13 @@ class ReadState : SimplePersistentStateComponent<ReadStateData>(ReadStateData())
         flow.value = state.readAt.toMap()
     }
 
+    @Synchronized
+    fun markUnread(address: String) {
+        if (address !in state.readAt) return
+        state.readAt = (state.readAt - address).toMutableMap()
+        flow.value = state.readAt.toMap()
+    }
+
     /** Forgets terminals that no longer exist. */
     @Synchronized
     fun retain(addresses: Set<String>) {

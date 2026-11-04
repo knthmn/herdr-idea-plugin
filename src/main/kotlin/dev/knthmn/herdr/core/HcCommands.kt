@@ -56,6 +56,11 @@ class HcCommands {
         call(listOf("kill", terminal))
     }
 
+    /** Sets [labels] on [terminal]. An empty value removes the label. */
+    suspend fun label(terminal: String, labels: Map<String, String>) {
+        call(listOf("label", "--", terminal) + labels.map { (k, v) -> "$k=$v" })
+    }
+
     suspend fun rm(terminal: String) {
         call(listOf("rm", terminal))
     }

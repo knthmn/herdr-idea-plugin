@@ -271,4 +271,12 @@ class SidebarModelTest {
         assertEquals(AgentState.NONE, model.rows.single { it.address == "shell" }.state)
         assertEquals(AgentState.FINISHED, model.finished.single().state)
     }
+
+    @Test
+    fun `session file is read from the resume command`() {
+        assertEquals("/a/b c.jsonl", Row.sessionFile("pi --session '/a/b c.jsonl'"))
+        assertEquals("/a/it's.jsonl", Row.sessionFile("pi --session '/a/it'\\''s.jsonl'"))
+        assertEquals("/a/b", Row.sessionFile("pi --session /a/b --other"))
+        assertEquals(null, Row.sessionFile("pi"))
+    }
 }

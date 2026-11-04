@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** New, resume, finish and delete for hc terminals, from the sidebar. */
+/** New, resume, finish, delete and label changes for hc terminals, from the sidebar. */
 @Service(Service.Level.PROJECT)
 class SessionActions(private val project: Project, private val cs: CoroutineScope) {
     private val hc = HcCommands.getInstance()
@@ -104,6 +104,12 @@ class SessionActions(private val project: Project, private val cs: CoroutineScop
                 while (sidebar.terminal(row.address)?.finished == false) delay(POLL)
             }
             hc.rm(row.address)
+        }
+    }
+
+    fun clearBlocked(row: Row) {
+        guarded(row, "Cannot clear the blocked label of ${row.label}") {
+            hc.label(row.address, mapOf(Row.BLOCKED to ""))
         }
     }
 

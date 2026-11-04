@@ -41,8 +41,38 @@ data class Row(
             resume != null &&
                 (finished || (program.key == SHELL && terminal.status?.state.isNullOrEmpty()))
 
+    val hasBlockedLabel: Boolean
+        get() = !terminal.labels[BLOCKED].isNullOrBlank()
+
+    /** A `done` agent that can show as unread again. */
+    val canMarkUnread: Boolean
+        get() = state == AgentState.IDLE && terminal.status?.state == "done"
+
+    /** The pi session file in the [resume] command, `pi --session '<file>'`. */
+    val sessionFile: String?
+        get() = resume?.let(::sessionFile)
+
     companion object {
         const val SHELL = "shell"
+        const val BLOCKED = "blocked"
+
+        fun sessionFile(command: String): String? {
+            val rest = command.substringAfter("--session ", "").trimStart()
+            val out = StringBuilder()
+            var quoted = false
+            var i = 0
+            while (i < rest.length) {
+                val c = rest[i]
+                when {
+                    c == '\'' -> quoted = !quoted
+                    c == '\\' && !quoted && i + 1 < rest.length -> out.append(rest[++i])
+                    c.isWhitespace() && !quoted -> break
+                    else -> out.append(c)
+                }
+                i++
+            }
+            return out.toString().takeIf { it.isNotEmpty() }
+        }
     }
 }
 
@@ -166,7 +196,7 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
                 it.isNotBlank() && !t.finished && program.key != Row.SHELL
             }
 
-        private const val BLOCKED = "blocked"
+        private const val BLOCKED = Row.BLOCKED
         private const val RESUME = "resume"
         private const val TITLE = "title"
 
