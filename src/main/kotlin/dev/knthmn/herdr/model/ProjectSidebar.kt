@@ -10,6 +10,7 @@ import com.intellij.openapi.project.Project
 import dev.knthmn.herdr.core.CoreState
 import dev.knthmn.herdr.core.HcClient
 import dev.knthmn.herdr.core.Terminal
+import dev.knthmn.herdr.settings.HerdrSettings
 import dev.knthmn.herdr.terminal.AgentTerminalFile
 import java.io.IOException
 import java.nio.file.Path
@@ -65,8 +66,10 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
                 HcClient.getInstance().state,
                 readState.readAt,
                 WorktreeRoots.getInstance(project).roots,
-                ::toSidebarState,
-            )
+                HerdrSettings.getInstance().changes,
+            ) { core, readAt, roots, _ ->
+                toSidebarState(core, readAt, roots, HerdrSettings.getInstance().labelKeys)
+            }
             .flowOn(Dispatchers.Default)
             .stateIn(
                 cs,
@@ -125,6 +128,7 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
         core: CoreState,
         readAt: Map<String, Long>,
         roots: List<Root>,
+        keys: LabelKeys,
     ): SidebarState {
         return when {
             core is CoreState.NotFound -> SidebarState.NotFound
@@ -141,7 +145,7 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
                     }
                 SidebarState.Ready(
                     core.hc,
-                    SidebarModel.build(terminals, roots, readAt::get, ::realPath),
+                    SidebarModel.build(terminals, roots, readAt::get, ::realPath, keys),
                 )
             }
             else -> SidebarState.Connecting

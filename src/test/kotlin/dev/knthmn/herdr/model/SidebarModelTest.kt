@@ -11,6 +11,14 @@ import kotlin.test.assertTrue
 
 class SidebarModelTest {
     private val root = listOf(Root(Path.of("/work/app")))
+    private val keys = LabelKeys("resume", "title", "blocked")
+
+    private fun build(
+        terminals: List<Terminal>,
+        roots: List<Root>,
+        readAt: (String) -> Long? = { null },
+        keys: LabelKeys = this.keys,
+    ) = SidebarModel.build(terminals, roots, readAt, keys = keys)
 
     private fun t(
         address: String,
@@ -44,7 +52,7 @@ class SidebarModelTest {
     @Test
     fun `scope uses cwd or foreground cwd and adds descendants`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t("t1", cwd = "/home", fg = "/work/app", state = "done", since = 2),
                     t("t2", parent = "t1", cwd = "/work/app/.dev/worktrees/x", state = "working"),
@@ -67,7 +75,7 @@ class SidebarModelTest {
     @Test
     fun `child in scope without its parent is a top-level row`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(t("t1", cwd = "/home"), t("t2", parent = "t1", cwd = "/work/app")),
                 root,
             )
@@ -77,7 +85,7 @@ class SidebarModelTest {
     @Test
     fun `rows are most recent first`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t("a", cwd = "/work/app", since = 1),
                     t("b", cwd = "/work/app", since = 3),
@@ -92,7 +100,7 @@ class SidebarModelTest {
     fun `states map from the reported status`() {
         val readAt = mapOf("read" to 10L, "stale" to 4L)
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t("working", cwd = "/work/app", state = "working"),
                     t("blocked", cwd = "/work/app", state = "blocked"),
@@ -124,7 +132,7 @@ class SidebarModelTest {
     @Test
     fun `label prefers name then title then foreground`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t("t1", cwd = "/work/app", name = "review", title = "x", since = 3),
                     t("t2", cwd = "/work/app", title = "pi title", since = 2),
@@ -138,7 +146,7 @@ class SidebarModelTest {
     @Test
     fun `title label wins over name`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t(
                         "t1",
@@ -156,7 +164,7 @@ class SidebarModelTest {
     fun `external worktrees are in scope and show the branch`() {
         val roots = root + Root(Path.of("/wt/app/feat-x"), "feat/x")
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t("t1", cwd = "/wt/app/feat-x", since = 2),
                     t("t2", cwd = "/wt/app/feat-x/src", since = 1),
@@ -171,7 +179,7 @@ class SidebarModelTest {
     @Test
     fun `finished terminals are a flat list, newest first`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t("t1", cwd = "/work/app"),
                     t("t2", parent = "t1", cwd = "/tmp", finished = 1),
@@ -191,7 +199,7 @@ class SidebarModelTest {
     @Test
     fun `resume needs a shell when live`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t(
                         "shell",
@@ -217,7 +225,7 @@ class SidebarModelTest {
     @Test
     fun `live descendants count those that end with the parent`() {
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t("t1", cwd = "/work/app"),
                     t("t2", parent = "t1", cwd = "/tmp"),
@@ -244,7 +252,7 @@ class SidebarModelTest {
     fun `blocked label marks a live agent blocked`() {
         val blocked = mapOf("blocked" to "Pick a library")
         val model =
-            SidebarModel.build(
+            build(
                 listOf(
                     t(
                         "agent",
@@ -270,6 +278,42 @@ class SidebarModelTest {
         assertEquals("Pick a library", agent.message)
         assertEquals(AgentState.NONE, model.rows.single { it.address == "shell" }.state)
         assertEquals(AgentState.FINISHED, model.finished.single().state)
+    }
+
+    @Test
+    fun `empty label keys turn the label features off`() {
+        val labels = mapOf("resume" to "pi", "title" to "Fixing x", "blocked" to "Pick one")
+        val model =
+            build(
+                listOf(
+                    t(
+                        "t1",
+                        cwd = "/work/app",
+                        fg = "/work/app",
+                        state = "working",
+                        name = "review",
+                        labels = labels,
+                    )
+                ),
+                root,
+                keys = LabelKeys(),
+            )
+        val row = model.rows.single()
+        assertEquals("review", row.label)
+        assertEquals(AgentState.RUNNING, row.state)
+        assertEquals(null, row.resume)
+        assertFalse(row.hasBlockedLabel)
+    }
+
+    @Test
+    fun `label keys can be renamed`() {
+        val model =
+            build(
+                listOf(t("t1", cwd = "/work/app", labels = mapOf("my.title" to "Fixing x"))),
+                root,
+                keys = LabelKeys(title = "my.title"),
+            )
+        assertEquals("Fixing x", model.rows.single().label)
     }
 
     @Test

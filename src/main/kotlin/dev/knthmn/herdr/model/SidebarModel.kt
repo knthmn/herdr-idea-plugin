@@ -18,6 +18,23 @@ enum class AgentState(val text: String) {
  */
 data class Root(val path: Path, val branch: String? = null)
 
+/** The terminal labels that the plugin reads. An empty key turns its feature off. */
+data class LabelKeys(val resume: String = "", val title: String = "", val blocked: String = "") {
+    fun resumeOf(t: Terminal): String? = value(t, resume)
+
+    fun titleOf(t: Terminal): String? = value(t, title)
+
+    fun blockedOf(t: Terminal): String? = value(t, blocked)
+
+    private fun value(t: Terminal, key: String): String? =
+        key.takeIf { it.isNotBlank() }?.let { t.labels[it] }?.takeIf { it.isNotBlank() }
+
+    companion object {
+        /** The keys that the example agent integrations in docs/ write. */
+        val DEFAULT = LabelKeys("resume", "title", "blocked")
+    }
+}
+
 data class Row(
     val address: String,
     val program: Program,
@@ -31,6 +48,7 @@ data class Row(
     val terminal: Terminal,
     val resume: String? = null,
     val liveDescendants: Int = 0,
+    val keys: LabelKeys = LabelKeys(),
 ) {
     val finished: Boolean
         get() = terminal.finished
@@ -42,7 +60,7 @@ data class Row(
                 (finished || (program.key == SHELL && terminal.status?.state.isNullOrEmpty()))
 
     val hasBlockedLabel: Boolean
-        get() = !terminal.labels[BLOCKED].isNullOrBlank()
+        get() = keys.blockedOf(terminal) != null
 
     /** A `done` agent that can show as unread again. */
     val canMarkUnread: Boolean
@@ -54,7 +72,6 @@ data class Row(
 
     companion object {
         const val SHELL = "shell"
-        const val BLOCKED = "blocked"
 
         fun sessionFile(command: String): String? {
             val rest = command.substringAfter("--session ", "").trimStart()
@@ -91,6 +108,7 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
             roots: List<Root>,
             readAt: (String) -> Long? = { null },
             normalize: (String) -> Path = { Path.of(it).normalize() },
+            keys: LabelKeys = LabelKeys(),
         ): SidebarModel {
             val normalRoots = roots.map { it.copy(path = normalize(it.path.toString())) }
             val byParent = terminals.filter { it.parent != null }.groupBy { it.parent }
@@ -105,7 +123,7 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
             }
             inScope.forEach(::collect)
 
-            val rows = RowFactory(byParent, normalRoots, readAt, normalize)
+            val rows = RowFactory(byParent, normalRoots, readAt, normalize, keys)
 
             val live = terminals.filter { it.address in shown && !it.finished }
             val liveAddresses = live.mapTo(HashSet()) { it.address }
@@ -156,6 +174,7 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
             private val roots: List<Root>,
             private val readAt: (String) -> Long?,
             private val normalize: (String) -> Path,
+            private val keys: LabelKeys,
         ) {
             fun row(t: Terminal, children: List<Row>): Row {
                 val cwd = t.foreground?.cwd?.takeUnless { t.finished || it.isEmpty() } ?: t.cwd
@@ -164,11 +183,11 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
                         t.status?.app.takeUnless { t.finished },
                         t.foreground?.argv?.takeIf { it.isNotEmpty() && !t.finished } ?: t.argv,
                     )
-                val blocked = blockedLabel(t, program)
+                val blocked = blockedLabel(t, program, keys)
                 return Row(
                     address = t.address,
                     program = program,
-                    label = label(t, program),
+                    label = label(t, program, keys),
                     detail = detail(normalize(cwd), roots),
                     state = blocked?.let { AgentState.BLOCKED } ?: state(t, readAt(t.address)),
                     message = if (t.finished) reason(t) else blocked ?: t.status?.msg,
@@ -176,8 +195,9 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
                     sinceMs = if (t.finished) t.finishedMs else t.statusMs ?: t.createdMs,
                     children = children,
                     terminal = t,
-                    resume = t.labels[RESUME]?.takeIf { it.isNotBlank() },
+                    resume = keys.resumeOf(t),
                     liveDescendants = ending(t),
+                    keys = keys,
                 )
             }
 
@@ -191,19 +211,13 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
          * The `blocked` label, a workaround for dialogs that pi does not report as blocked. Ignored
          * once the agent is gone, since it cannot clear a label then.
          */
-        private fun blockedLabel(t: Terminal, program: Program): String? =
-            t.labels[BLOCKED]?.takeIf {
-                it.isNotBlank() && !t.finished && program.key != Row.SHELL
-            }
-
-        private const val BLOCKED = Row.BLOCKED
-        private const val RESUME = "resume"
-        private const val TITLE = "title"
+        private fun blockedLabel(t: Terminal, program: Program, keys: LabelKeys): String? =
+            keys.blockedOf(t)?.takeIf { !t.finished && program.key != Row.SHELL }
 
         private val byRecent = compareByDescending<Terminal> { it.statusMs ?: it.createdMs ?: 0 }
 
-        private fun label(t: Terminal, program: Program): String =
-            listOf(t.labels[TITLE], t.name, t.title).firstOrNull { !it.isNullOrBlank() }
+        private fun label(t: Terminal, program: Program, keys: LabelKeys): String =
+            listOf(keys.titleOf(t), t.name, t.title).firstOrNull { !it.isNullOrBlank() }
                 ?: program.name
 
         private fun detail(cwd: Path, roots: List<Root>): String {

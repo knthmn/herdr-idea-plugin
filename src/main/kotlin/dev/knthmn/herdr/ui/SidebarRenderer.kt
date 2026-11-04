@@ -6,6 +6,7 @@ import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.SimpleTextAttributes
 import dev.knthmn.herdr.model.AgentState
 import dev.knthmn.herdr.model.Row
+import dev.knthmn.herdr.settings.HerdrSettings
 import javax.swing.JTree
 import javax.swing.tree.DefaultMutableTreeNode
 import kotlin.time.Duration
@@ -46,15 +47,18 @@ class SidebarRenderer : ColoredTreeCellRenderer() {
         if (item.finished) {
             append("  ${item.message}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
         }
-        if (item.detail.isNotEmpty()) {
+        val settings = HerdrSettings.getInstance()
+        if (settings.showLocation && item.detail.isNotEmpty()) {
             append("  ${item.detail}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
         }
-        item.sinceMs?.let {
-            append(
-                "  ${age((System.currentTimeMillis() - it).milliseconds)}",
-                SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES,
-            )
-        }
+        item.sinceMs
+            ?.takeIf { settings.showAge }
+            ?.let {
+                append(
+                    "  ${age((System.currentTimeMillis() - it).milliseconds)}",
+                    SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES,
+                )
+            }
         toolTipText =
             listOfNotNull(
                     item.state.text,

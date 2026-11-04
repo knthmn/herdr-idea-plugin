@@ -16,6 +16,7 @@ import dev.knthmn.herdr.model.Row
 import dev.knthmn.herdr.model.SidebarModel
 import dev.knthmn.herdr.model.SidebarState
 import dev.knthmn.herdr.settings.HerdrConfigurable
+import dev.knthmn.herdr.settings.HerdrSettings
 import dev.knthmn.herdr.terminal.SessionActions
 import dev.knthmn.herdr.terminal.TerminalOpener
 import java.awt.event.KeyAdapter
@@ -78,6 +79,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         setContent(ScrollPaneFactory.createScrollPane(tree, true))
         ageTimer.start()
         scope.launch { ProjectSidebar.getInstance(project).state.collect(::render) }
+        scope.launch { HerdrSettings.getInstance().changes.collect { tree.repaint() } }
     }
 
     private fun selectedRow(): Row? =
@@ -85,7 +87,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
 
     private fun open(path: TreePath) {
         val row = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? Row ?: return
-        if (row.canResume) {
+        if (row.canResume && HerdrSettings.getInstance().resumeOnClick) {
             SessionActions.getInstance(project).resume(row)
             return
         }
@@ -122,8 +124,8 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
             SidebarState.NoProject -> text.appendLine("No project folder")
             is SidebarState.Ready -> {
                 text.appendLine("No terminals in this project")
-                text.appendLine("Start a terminal", SimpleTextAttributes.LINK_ATTRIBUTES) {
-                    SessionActions.getInstance(project).newSession(null)
+                text.appendLine("Start a session", SimpleTextAttributes.LINK_ATTRIBUTES) {
+                    SessionActions.getInstance(project).newDefaultSession()
                 }
             }
         }

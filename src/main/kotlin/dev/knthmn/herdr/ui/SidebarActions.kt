@@ -9,6 +9,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
@@ -22,6 +23,7 @@ import dev.knthmn.herdr.model.Launchers
 import dev.knthmn.herdr.model.ReadState
 import dev.knthmn.herdr.model.Row
 import dev.knthmn.herdr.model.WorktreeRoots
+import dev.knthmn.herdr.settings.HerdrSettings
 import dev.knthmn.herdr.terminal.SessionActions
 import java.nio.file.Files
 import java.nio.file.Path
@@ -31,7 +33,8 @@ import javax.swing.Icon
 class SidebarActions(private val project: Project, private val selected: () -> Row?) {
     private val sessions = SessionActions.getInstance(project)
 
-    val newSession: ActionGroup = NewSessionGroup()
+    private val newDefault = NewDefaultSession()
+    private val newSession: ActionGroup = NewSessionGroup()
 
     private val resume =
         rowAction(
@@ -122,7 +125,15 @@ class SidebarActions(private val project: Project, private val selected: () -> R
         }
 
     fun toolbar(): ActionGroup =
-        DefaultActionGroup(newSession, Separator.create(), resume, finish, delete, refresh)
+        DefaultActionGroup(
+            newDefault,
+            newSession,
+            Separator.create(),
+            resume,
+            finish,
+            delete,
+            refresh,
+        )
 
     fun popup(): ActionGroup =
         DefaultActionGroup(
@@ -200,9 +211,32 @@ class SidebarActions(private val project: Project, private val selected: () -> R
                     ?.takeIf { Files.isDirectory(it) }
         }
 
+    /** Starts the default agent of the settings. The button shows the agent's name. */
+    private inner class NewDefaultSession : DumbAwareAction() {
+        init {
+            templatePresentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, true)
+        }
+
+        override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+        override fun update(e: AnActionEvent) {
+            val agent = Launchers.agent(HerdrSettings.getInstance().defaultAgent)
+            val name = agent?.program?.name ?: "Terminal"
+            e.presentation.text = name
+            e.presentation.description =
+                "New $name session: ${agent?.run?.joinToString(" ") ?: "a login shell"}"
+            e.presentation.icon =
+                agent?.let { ProgramIcons.of(it.program) } ?: AllIcons.Nodes.Console
+            e.presentation.isEnabled = agent?.installed ?: true
+        }
+
+        override fun actionPerformed(e: AnActionEvent) = sessions.newDefaultSession()
+    }
+
     private inner class NewSessionGroup : ActionGroup("New Session", true) {
         init {
-            templatePresentation.icon = AllIcons.General.Add
+            templatePresentation.icon = AllIcons.General.ChevronDown
+            templatePresentation.putClientProperty(ActionUtil.HIDE_DROPDOWN_ICON, true)
         }
 
         override fun getActionUpdateThread() = ActionUpdateThread.BGT

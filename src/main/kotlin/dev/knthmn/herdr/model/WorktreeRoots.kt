@@ -6,6 +6,7 @@ import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.util.EnvironmentUtil
 import com.intellij.util.concurrency.AppExecutorUtil
+import dev.knthmn.herdr.settings.HerdrProjectSettings
 import java.io.File
 import java.io.IOException
 import java.nio.file.Path
@@ -21,7 +22,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** The project root and the other checkouts of its git repository (`git worktree list`). */
+/**
+ * The project root, the other checkouts of its git repository (`git worktree list`) and the extra
+ * folders of the project settings.
+ */
 @Service(Service.Level.PROJECT)
 class WorktreeRoots(private val project: Project, private val cs: CoroutineScope) {
     private val mutableRoots = MutableStateFlow(listOfNotNull(project.basePath?.let(::projectRoot)))
@@ -43,7 +47,10 @@ class WorktreeRoots(private val project: Project, private val cs: CoroutineScope
     private fun load() {
         val base = project.basePath ?: return
         val list = gitWorktrees(base)
-        mutableRoots.value = listOf(projectRoot(base)) + external(Path.of(base), parse(list))
+        val worktrees = external(Path.of(base), parse(list))
+        val extra = HerdrProjectSettings.getInstance(project).extraRoots
+        mutableRoots.value =
+            listOf(projectRoot(base)) + worktrees + extra(Path.of(base), worktrees, extra)
     }
 
     private fun gitWorktrees(base: String): String =
@@ -97,6 +104,19 @@ class WorktreeRoots(private val project: Project, private val cs: CoroutineScope
                             ?.removePrefix("refs/heads/")
                     path?.let { Root(Path.of(it), branch) }
                 }
+
+        /**
+         * The [extra] folders that are absolute and lie neither inside the project folder nor in a
+         * checkout of [worktrees].
+         */
+        fun extra(base: Path, worktrees: List<Root>, extra: List<String>): List<Root> {
+            val covered = listOf(base.normalize()) + worktrees.map { it.path.normalize() }
+            return extra
+                .mapNotNull { runCatching { Path.of(it).normalize() }.getOrNull() }
+                .filter { it.isAbsolute && covered.none(it::startsWith) }
+                .distinct()
+                .map { Root(it) }
+        }
 
         /** The checkouts that neither contain the project folder nor lie inside it. */
         fun external(base: Path, worktrees: List<Root>): List<Root> {

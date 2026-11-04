@@ -51,4 +51,17 @@ class WorktreeRootsTest {
             WorktreeRoots.external(Path.of("/work/app/sub"), roots),
         )
     }
+
+    @Test
+    fun `extra roots skip relative and covered folders`() {
+        val worktrees = listOf(Root(Path.of("/wt/app/feat-x"), "feat/x"))
+        assertEquals(
+            listOf(Root(Path.of("/notes")), Root(Path.of("/wt"))),
+            WorktreeRoots.extra(
+                Path.of("/work/app"),
+                worktrees,
+                listOf("/notes", "/work/app/sub", "/wt/app/feat-x/src", "rel", "/notes/", "/wt"),
+            ),
+        )
+    }
 }

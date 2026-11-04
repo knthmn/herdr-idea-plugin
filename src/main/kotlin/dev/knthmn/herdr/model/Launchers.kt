@@ -35,6 +35,10 @@ object Launchers {
         return agents
     }
 
+    /** The menu agent with program [key], or null for a login shell. */
+    fun agent(key: String): Agent? =
+        key.takeIf { it.isNotEmpty() }?.let { k -> knownAgents().find { it.program.key == k } }
+
     fun shell(): String =
         EnvironmentUtil.getValue("SHELL")?.takeIf { it.isNotBlank() } ?: "/bin/zsh"
 

@@ -34,11 +34,21 @@ class SessionActions(private val project: Project, private val cs: CoroutineScop
 
     fun isBusy(row: Row): Boolean = row.address in busy
 
+    /** Starts the default agent of the settings, or a login shell. */
+    fun newDefaultSession() {
+        cs.launch(Dispatchers.IO) {
+            newSession(Launchers.agent(HerdrSettings.getInstance().defaultAgent))
+        }
+    }
+
     /** Starts [agent], or a login shell, in the project root and opens it. */
     fun newSession(agent: Agent?) {
         val cwd = project.basePath ?: return
         cs.launch {
             report("Cannot start ${agent?.program?.name ?: "a terminal"}") {
+                if (agent != null && !agent.installed) {
+                    throw HcException("not_installed", "${agent.run.first()} is not on PATH")
+                }
                 val argv = agent?.let { Launchers.wrap(it.run) } ?: Launchers.terminal()
                 open(hc.run(argv, cwd, keep = true))
             }
@@ -109,19 +119,20 @@ class SessionActions(private val project: Project, private val cs: CoroutineScop
 
     fun clearBlocked(row: Row) {
         guarded(row, "Cannot clear the blocked label of ${row.label}") {
-            hc.label(row.address, mapOf(Row.BLOCKED to ""))
+            hc.label(row.address, mapOf(row.keys.blocked to ""))
         }
     }
 
     private fun confirm(message: String, title: String, action: String): Boolean =
-        Messages.showOkCancelDialog(
-            project,
-            message,
-            title,
-            action,
-            Messages.getCancelButton(),
-            Messages.getWarningIcon(),
-        ) == Messages.OK
+        !HerdrSettings.getInstance().confirmEnd ||
+            Messages.showOkCancelDialog(
+                project,
+                message,
+                title,
+                action,
+                Messages.getCancelButton(),
+                Messages.getWarningIcon(),
+            ) == Messages.OK
 
     private fun guarded(row: Row, failure: String, block: suspend () -> Unit) {
         if (!busy.add(row.address)) return

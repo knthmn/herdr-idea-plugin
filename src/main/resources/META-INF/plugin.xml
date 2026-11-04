@@ -27,5 +27,11 @@
                 instance="dev.knthmn.herdr.settings.HerdrConfigurable"
                 id="dev.knthmn.herdr.settings"
                 displayName="Herdr"/>
+        <projectConfigurable
+                parentId="dev.knthmn.herdr.settings"
+                instance="dev.knthmn.herdr.settings.HerdrProjectConfigurable"
+                id="dev.knthmn.herdr.settings.scope"
+                displayName="Scope"
+                nonDefaultProject="true"/>
     </extensions>
 </idea-plugin>
