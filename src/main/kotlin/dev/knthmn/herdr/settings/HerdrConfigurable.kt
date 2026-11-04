@@ -75,10 +75,10 @@ class HerdrConfigurable : BoundConfigurable("Herdr") {
                     .bindSelected(settings::showAge)
             }
             row {
-                checkBox("Click on a resumable row resumes it")
+                checkBox("Double-click or Enter on a resumable row resumes it")
                     .bindSelected(settings::resumeOnClick)
                     .comment(
-                        "When off, the click opens a live terminal and does nothing for a finished one."
+                        "When off, it opens a live terminal and does nothing for a finished one."
                     )
             }
             row {

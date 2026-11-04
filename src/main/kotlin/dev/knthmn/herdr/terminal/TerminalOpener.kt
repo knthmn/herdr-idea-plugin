@@ -3,8 +3,8 @@ package dev.knthmn.herdr.terminal
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.terminal.frontend.toolwindow.TerminalToolWindowTabsManager
 import dev.knthmn.herdr.model.Row
 import java.nio.file.Files
@@ -18,16 +18,31 @@ import org.jetbrains.plugins.terminal.startup.TerminalProcessType
  */
 @Service(Service.Level.PROJECT)
 class TerminalOpener(private val project: Project) {
-    private val files = HashMap<String, VirtualFile>()
+    private val files = HashMap<String, AgentTerminalFile>()
+    private val previews = HashSet<String>()
 
-    fun open(hc: Path, row: Row) {
+    /**
+     * Opens [row] in its tab. With [preview], the tab is the IDE's preview tab, which the next
+     * preview replaces.
+     */
+    fun open(hc: Path, row: Row, preview: Boolean = false, focus: Boolean = true) {
         val editors = FileEditorManager.getInstance(project)
         files.values.retainAll { editors.isFileOpen(it) }
-        val existing = files[row.address]
-        if (existing != null) {
-            editors.openFile(existing, true)
-            return
-        }
+        previews.retainAll(files.keys)
+        val file = files.getOrPut(row.address) { createFile(hc, row) }
+        val wasOpen = editors.isFileOpen(file)
+        editors.openFileEditor(OpenFileDescriptor(project, file).setUsePreviewTab(preview), focus)
+        if (!preview) previews -= row.address else if (!wasOpen) previews += row.address
+    }
+
+    /** Makes the preview tab of [file] a normal tab, like an edit does for a file. */
+    fun keep(file: AgentTerminalFile) {
+        if (!previews.remove(file.address)) return
+        FileEditorManager.getInstance(project)
+            .openFileEditor(OpenFileDescriptor(project, file), false)
+    }
+
+    private fun createFile(hc: Path, row: Row): AgentTerminalFile {
         val manager = TerminalToolWindowTabsManager.getInstance(project)
         val tab =
             manager
@@ -40,9 +55,7 @@ class TerminalOpener(private val project: Project) {
                 .requestFocus(false)
                 .createTab()
         manager.detachTab(tab)
-        val file = AgentTerminalFile(row.address, row.program, tab, tabName(row))
-        files[row.address] = file
-        editors.openFile(file, true)
+        return AgentTerminalFile(row.address, row.program, tab, tabName(row))
     }
 
     private fun tabName(row: Row): String = row.label.take(AgentTabTitleProvider.MAX_LENGTH)

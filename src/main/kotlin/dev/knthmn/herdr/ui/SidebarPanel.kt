@@ -1,5 +1,8 @@
 package dev.knthmn.herdr.ui
 
+import com.intellij.ide.projectView.ProjectView
+import com.intellij.ide.projectView.impl.ProjectViewPane
+import com.intellij.ide.ui.UISettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.application.EDT
@@ -7,6 +10,8 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.Disposer
+import com.intellij.ui.AutoScrollToSourceHandler
+import com.intellij.ui.DoubleClickListener
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
@@ -19,12 +24,11 @@ import dev.knthmn.herdr.settings.HerdrConfigurable
 import dev.knthmn.herdr.settings.HerdrSettings
 import dev.knthmn.herdr.terminal.SessionActions
 import dev.knthmn.herdr.terminal.TerminalOpener
+import java.awt.Component
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
-import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.nio.file.Path
-import javax.swing.SwingUtilities
 import javax.swing.Timer
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
@@ -52,24 +56,51 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
     private var finishedExpanded = false
     private val actions = SidebarActions(project, ::selectedRows)
 
+    /**
+     * Opens the selected row on a single click or a keyboard move, like the Project view with "Open
+     * Files with Single Click" or "Enable Preview Tab" on.
+     */
+    private val singleClick =
+        object : AutoScrollToSourceHandler() {
+            override fun isAutoScrollMode(): Boolean {
+                val view = ProjectView.getInstance(project)
+                return UISettings.getInstance().openInPreviewTabIfPossible ||
+                    view.isAutoscrollToSource(view.currentViewId ?: ProjectViewPane.ID)
+            }
+
+            override fun setAutoScrollMode(state: Boolean) = Unit
+
+            override fun scrollToSource(tree: Component) {
+                selectedRows().singleOrNull()?.let { open(it, preview = true) }
+            }
+        }
+
     init {
         Disposer.register(parent, this)
         tree.isRootVisible = false
         tree.showsRootHandles = true
         tree.cellRenderer = SidebarRenderer()
-        tree.addMouseListener(
-            object : MouseAdapter() {
-                override fun mouseClicked(e: MouseEvent) {
-                    if (SwingUtilities.isLeftMouseButton(e) && e.clickCount == 1) {
-                        tree.getPathForLocation(e.x, e.y)?.let(::row)?.let(::open)
-                    }
+        singleClick.install(tree)
+        object : DoubleClickListener() {
+                override fun onDoubleClick(e: MouseEvent): Boolean {
+                    val row = tree.getPathForLocation(e.x, e.y)?.let(::row) ?: return false
+                    open(row)
+                    return true
                 }
             }
-        )
+            .installOn(tree)
         tree.addKeyListener(
             object : KeyAdapter() {
                 override fun keyPressed(e: KeyEvent) {
-                    if (e.keyCode == KeyEvent.VK_ENTER) selectedRows().forEach(::open)
+                    if (e.keyCode != KeyEvent.VK_ENTER) return
+                    val rows = selectedRows()
+                    val path = tree.selectionPath
+                    when {
+                        rows.isNotEmpty() -> rows.forEach { open(it) }
+                        path == null -> Unit
+                        tree.isExpanded(path) -> tree.collapsePath(path)
+                        else -> tree.expandPath(path)
+                    }
                 }
             }
         )
@@ -88,7 +119,18 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
     private fun selectedRows(): List<Row> =
         tree.selectionPaths.orEmpty().sortedBy(tree::getRowForPath).mapNotNull(::row)
 
-    private fun open(row: Row) {
+    /**
+     * Opens [row] with focus. A [preview] is a single click: it shows a live row without focus, in
+     * the preview tab if the IDE uses one, and does not resume.
+     */
+    private fun open(row: Row, preview: Boolean = false) {
+        if (preview) {
+            val hc = hc ?: return
+            if (row.finished) return
+            val usePreview = UISettings.getInstance().openInPreviewTabIfPossible
+            TerminalOpener.getInstance(project).open(hc, row, usePreview, focus = false)
+            return
+        }
         if (row.canResume && HerdrSettings.getInstance().resumeOnClick) {
             SessionActions.getInstance(project).resume(row)
             return
@@ -157,6 +199,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
             if (node !== root && node.childCount > 0 && expand) tree.expandPath(path)
             if (node !== root && key(node) in selected) tree.addSelectionPath(path)
         }
+        singleClick.cancelAllRequests()
     }
 
     private fun finishedNode(model: SidebarModel): DefaultMutableTreeNode? =
