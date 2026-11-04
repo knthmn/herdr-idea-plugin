@@ -13,9 +13,25 @@ enum class AgentState(val text: String) {
     FINISHED("Finished"),
 }
 
+enum class SortOrder {
+    RECENT,
+    STATUS,
+}
+
+data class ViewOptions(val groupByFolder: Boolean = false, val sort: SortOrder = SortOrder.RECENT)
+
 /**
- * A folder whose terminals are in scope. [branch] is set for a git worktree outside the project.
+ * Top-level live rows whose cwd is [path]. A null [path] holds the rows without a cwd. [location]
+ * is the folder of a worktree group, whose [label] is the branch.
  */
+data class FolderGroup(
+    val path: Path?,
+    val label: String,
+    val rows: List<Row>,
+    val location: String? = null,
+)
+
+/** A folder whose terminals are in scope. [branch] is set for a checked-out git worktree. */
 data class Root(val path: Path, val branch: String? = null)
 
 /** The terminal labels that the plugin reads. An empty key turns its feature off. */
@@ -93,15 +109,23 @@ data class Row(
     }
 }
 
-data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList()) {
+/**
+ * [rows] are the top-level live rows in display order. [groups] is empty unless the rows are
+ * grouped by folder.
+ */
+data class SidebarModel(
+    val rows: List<Row>,
+    val finished: List<Row> = emptyList(),
+    val groups: List<FolderGroup> = emptyList(),
+) {
     companion object {
         val EMPTY = SidebarModel(emptyList())
 
         /**
          * Terminals whose cwd or foreground cwd is under a root are in scope, together with all
          * their descendants. The first root is the project. Live terminals nest under their live
-         * parent. Finished terminals are a flat list, newest first. A `done` terminal is unread
-         * until [readAt] is at or after its last status change.
+         * parent, in the order of [view]. Finished terminals are a flat list, newest first. A
+         * `done` terminal is unread until [readAt] is at or after its last status change.
          */
         fun build(
             terminals: Collection<Terminal>,
@@ -109,6 +133,7 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
             readAt: (String) -> Long? = { null },
             normalize: (String) -> Path = { Path.of(it).normalize() },
             keys: LabelKeys = LabelKeys(),
+            view: ViewOptions = ViewOptions(),
         ): SidebarModel {
             val normalRoots = roots.map { it.copy(path = normalize(it.path.toString())) }
             val byParent = terminals.filter { it.parent != null }.groupBy { it.parent }
@@ -127,24 +152,77 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
 
             val live = terminals.filter { it.address in shown && !it.finished }
             val liveAddresses = live.mapTo(HashSet()) { it.address }
+            val order = RowOrder.of(view.sort)
             fun liveRow(t: Terminal): Row =
                 rows.row(
                     t,
                     byParent[t.address]
                         .orEmpty()
                         .filter { it.address in liveAddresses }
-                        .sortedWith(byRecent)
-                        .map(::liveRow),
+                        .map(::liveRow)
+                        .sortedWith(order),
                 )
 
-            val tops = live.filter { it.parent !in liveAddresses }
+            val tops = live.filter { it.parent !in liveAddresses }.map(::liveRow).sortedWith(order)
             val finished =
                 terminals
                     .filter { it.address in shown && it.finished }
                     .sortedByDescending { it.finishedMs ?: 0 }
                     .map { rows.row(it, emptyList()) }
-            return SidebarModel(tops.sortedWith(byRecent).map(::liveRow), finished)
+            if (!view.groupByFolder) return SidebarModel(tops, finished)
+            val groups = group(tops, normalRoots, normalize)
+            return SidebarModel(groups.flatMap { it.rows }, finished, groups)
         }
+
+        /**
+         * Groups [tops] by their cwd. Groups sort by the first root that holds the folder, then by
+         * path. Folders under no root and rows without a cwd come last.
+         */
+        private fun group(
+            tops: List<Row>,
+            roots: List<Root>,
+            normalize: (String) -> Path,
+        ): List<FolderGroup> {
+            val folderOf = { row: Row -> row.cwd.takeIf { it.isNotEmpty() }?.let(normalize) }
+            fun rootIndex(path: Path?): Int =
+                path?.let { p -> roots.indexOfFirst { p.startsWith(it.path) } }?.takeIf { it >= 0 }
+                    ?: roots.size
+            val order =
+                compareBy<Path?> { if (it == null) 1 else 0 }.thenBy { rootIndex(it) }.thenBy { it }
+            return tops.groupBy(folderOf).toSortedMap(order).map { (path, rows) ->
+                folderGroup(path, roots, rows.map { trimDetail(it, path, folderOf) })
+            }
+        }
+
+        /**
+         * A folder in a worktree other than the project shows the branch and the folder. Other
+         * folders show their detail, or the project folder name.
+         */
+        private fun folderGroup(path: Path?, roots: List<Root>, rows: List<Row>): FolderGroup {
+            if (path == null) return FolderGroup(null, "No folder", rows)
+            val worktree =
+                roots
+                    .drop(1)
+                    .filter { it.branch != null && path.startsWith(it.path) }
+                    .maxByOrNull { it.path.nameCount }
+            if (worktree?.branch != null) {
+                val sub = worktree.path.relativize(path).toString()
+                val label = if (sub.isEmpty()) worktree.branch else "${worktree.branch}/$sub"
+                return FolderGroup(path, label, rows, location(path, roots.firstOrNull()?.path))
+            }
+            val label = detail(path, roots).ifEmpty { path.fileName?.toString() ?: path.toString() }
+            return FolderGroup(path, label, rows)
+        }
+
+        private fun location(path: Path, project: Path?): String =
+            if (project != null && path.startsWith(project)) project.relativize(path).toString()
+            else abbreviateHome(path.toString())
+
+        private fun trimDetail(row: Row, folder: Path?, folderOf: (Row) -> Path?): Row =
+            row.copy(
+                detail = if (folderOf(row) == folder) "" else row.detail,
+                children = row.children.map { trimDetail(it, folder, folderOf) },
+            )
 
         fun state(t: Terminal, readAt: Long?): AgentState =
             if (t.finished) AgentState.FINISHED
@@ -213,8 +291,6 @@ data class SidebarModel(val rows: List<Row>, val finished: List<Row> = emptyList
          */
         private fun blockedLabel(t: Terminal, program: Program, keys: LabelKeys): String? =
             keys.blockedOf(t)?.takeIf { !t.finished && program.key != Row.SHELL }
-
-        private val byRecent = compareByDescending<Terminal> { it.statusMs ?: it.createdMs ?: 0 }
 
         private fun label(t: Terminal, program: Program, keys: LabelKeys): String =
             listOf(keys.titleOf(t), t.name, t.title).firstOrNull { !it.isNullOrBlank() }

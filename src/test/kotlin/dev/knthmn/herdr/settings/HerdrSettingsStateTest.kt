@@ -16,4 +16,17 @@ class HerdrSettingsStateTest {
         assertEquals("", loaded.titleLabel)
         assertEquals("blocked", loaded.blockedLabel)
     }
+
+    @Test
+    fun `view options default and survive a round trip`() {
+        val state = HerdrSettingsState()
+        assertEquals(false, state.groupByFolder)
+        assertEquals("RECENT", state.sortOrder)
+        state.groupByFolder = true
+        state.sortOrder = "STATUS"
+        val element = XmlSerializer.serialize(state)
+        val loaded = XmlSerializer.deserialize(element, HerdrSettingsState::class.java)
+        assertEquals(true, loaded.groupByFolder)
+        assertEquals("STATUS", loaded.sortOrder)
+    }
 }

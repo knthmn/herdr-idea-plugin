@@ -18,7 +18,8 @@ class SidebarModelTest {
         roots: List<Root>,
         readAt: (String) -> Long? = { null },
         keys: LabelKeys = this.keys,
-    ) = SidebarModel.build(terminals, roots, readAt, keys = keys)
+        view: ViewOptions = ViewOptions(),
+    ) = SidebarModel.build(terminals, roots, readAt, keys = keys, view = view)
 
     private fun t(
         address: String,
@@ -322,5 +323,172 @@ class SidebarModelTest {
         assertEquals("/a/it's.jsonl", Row.sessionFile("pi --session '/a/it'\\''s.jsonl'"))
         assertEquals("/a/b", Row.sessionFile("pi --session /a/b --other"))
         assertEquals(null, Row.sessionFile("pi"))
+    }
+
+    @Test
+    fun `default view has no groups`() {
+        val model = build(listOf(t("a", cwd = "/work/app")), root)
+        assertEquals(emptyList(), model.groups)
+    }
+
+    @Test
+    fun `status sort puts attention first, then most recent`() {
+        val model =
+            build(
+                listOf(
+                    t("none", cwd = "/work/app", since = 9),
+                    t("idle", cwd = "/work/app", state = "idle", since = 8),
+                    t("running", cwd = "/work/app", state = "working", since = 7),
+                    t("unread", cwd = "/work/app", state = "done", since = 6),
+                    t("error", cwd = "/work/app", state = "error", since = 5),
+                    t("old", cwd = "/work/app", state = "blocked", since = 1),
+                    t("new", cwd = "/work/app", state = "blocked", since = 2),
+                    t(
+                        "label",
+                        cwd = "/work/app",
+                        fg = "/work/app",
+                        state = "working",
+                        since = 0,
+                        labels = mapOf("blocked" to "question"),
+                    ),
+                ),
+                root,
+                view = ViewOptions(sort = SortOrder.STATUS),
+            )
+        assertEquals(
+            listOf("new", "old", "label", "error", "unread", "running", "idle", "none"),
+            model.rows.map { it.address },
+        )
+    }
+
+    @Test
+    fun `status sort applies to children`() {
+        val model =
+            build(
+                listOf(
+                    t("p", cwd = "/work/app"),
+                    t("c1", parent = "p", cwd = "/work/app", state = "idle", since = 5),
+                    t("c2", parent = "p", cwd = "/work/app", state = "error", since = 1),
+                ),
+                root,
+                view = ViewOptions(sort = SortOrder.STATUS),
+            )
+        assertEquals(listOf("c2", "c1"), model.rows.single().children.map { it.address })
+    }
+
+    @Test
+    fun `group by folder orders groups by root then path`() {
+        val roots = root + Root(Path.of("/wt/app/feat-x"), "feat/x") + Root(Path.of("/extra/docs"))
+        val model =
+            build(
+                listOf(
+                    t("other", cwd = "/work/app", fg = "/tmp", since = 7),
+                    t("extra", cwd = "/extra/docs", since = 6),
+                    t("wtsub", cwd = "/wt/app/feat-x/src", since = 5),
+                    t("wt", cwd = "/wt/app/feat-x", since = 4),
+                    t("sub", cwd = "/work/app/sub", since = 3),
+                    t("fg", cwd = "/home", fg = "/work/app", since = 2),
+                    t("root", cwd = "/work/app", since = 1),
+                ),
+                roots,
+                view = ViewOptions(groupByFolder = true),
+            )
+        assertEquals(
+            listOf("app", "sub", "feat/x", "feat/x/src", "docs", "/tmp"),
+            model.groups.map { it.label },
+        )
+        assertEquals(
+            listOf(null, null, "/wt/app/feat-x", "/wt/app/feat-x/src", null, null),
+            model.groups.map { it.location },
+        )
+        assertEquals(listOf("fg", "root"), model.groups.first().rows.map { it.address })
+        assertEquals(model.groups.flatMap { it.rows }, model.rows)
+        assertTrue(model.rows.all { it.detail.isEmpty() })
+    }
+
+    @Test
+    fun `grouped children stay under their parent and keep a different folder`() {
+        val model =
+            build(
+                listOf(
+                    t("p", cwd = "/work/app/sub", since = 3),
+                    t("same", parent = "p", cwd = "/work/app/sub", since = 2),
+                    t("other", parent = "p", cwd = "/work/app/lib", since = 1),
+                    t("done", cwd = "/work/app/sub", finished = 1),
+                ),
+                root,
+                view = ViewOptions(groupByFolder = true, sort = SortOrder.STATUS),
+            )
+        val group = model.groups.single()
+        assertEquals("sub", group.label)
+        val parent = group.rows.single()
+        assertEquals(listOf("", "lib"), parent.children.map { it.detail })
+        assertEquals(listOf("done"), model.finished.map { it.address })
+        assertEquals("sub", model.finished.single().detail)
+    }
+
+    @Test
+    fun `a worktree inside the project groups by branch with its folder`() {
+        val roots = root + Root(Path.of("/work/app/.dev/worktrees/x"), "feat/x")
+        val model =
+            build(
+                listOf(
+                    t("wt", cwd = "/work/app/.dev/worktrees/x", since = 2),
+                    t("sub", cwd = "/work/app/.dev/worktrees/x/src", since = 1),
+                ),
+                roots,
+                view = ViewOptions(groupByFolder = true),
+            )
+        assertEquals(listOf("feat/x", "feat/x/src"), model.groups.map { it.label })
+        assertEquals(
+            listOf(".dev/worktrees/x", ".dev/worktrees/x/src"),
+            model.groups.map { it.location },
+        )
+        val flat = build(listOf(t("wt", cwd = "/work/app/.dev/worktrees/x")), roots)
+        assertEquals(".dev/worktrees/x", flat.rows.single().detail)
+    }
+
+    @Test
+    fun `status sort orders the rows inside a group`() {
+        val model =
+            build(
+                listOf(
+                    t("idle", cwd = "/work/app", state = "idle", since = 9),
+                    t("blocked", cwd = "/work/app", state = "blocked", since = 1),
+                    t("error", cwd = "/work/app", state = "error", since = 5),
+                ),
+                root,
+                view = ViewOptions(groupByFolder = true, sort = SortOrder.STATUS),
+            )
+        assertEquals(
+            listOf("blocked", "error", "idle"),
+            model.groups.single().rows.map { it.address },
+        )
+    }
+
+    @Test
+    fun `a terminal without a status sorts by its creation time`() {
+        val model =
+            build(
+                listOf(
+                    t("old", cwd = "/work/app", state = "idle", since = 5),
+                    t("new", cwd = "/work/app").copy(statusMs = null, createdMs = 9),
+                ),
+                root,
+            )
+        assertEquals(listOf("new", "old"), model.rows.map { it.address })
+        assertEquals(9L, model.rows.first().sinceMs)
+    }
+
+    @Test
+    fun `an empty foreground cwd falls back to the terminal cwd`() {
+        val model =
+            build(
+                listOf(t("a", cwd = "/work/app/sub").copy(foreground = Foreground(cwd = ""))),
+                root,
+                view = ViewOptions(groupByFolder = true),
+            )
+        assertEquals("/work/app/sub", model.rows.first { it.address == "a" }.cwd)
+        assertEquals(listOf("sub"), model.groups.map { it.label })
     }
 }

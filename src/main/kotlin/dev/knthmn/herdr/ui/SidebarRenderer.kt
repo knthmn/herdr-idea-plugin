@@ -1,10 +1,12 @@
 package dev.knthmn.herdr.ui
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.SimpleTextAttributes
 import dev.knthmn.herdr.model.AgentState
+import dev.knthmn.herdr.model.FolderGroup
 import dev.knthmn.herdr.model.Row
 import dev.knthmn.herdr.settings.HerdrSettings
 import javax.swing.JTree
@@ -24,13 +26,26 @@ class SidebarRenderer : ColoredTreeCellRenderer() {
     ) {
         val node = (value as? DefaultMutableTreeNode)?.userObject
         if (node is FinishedGroup) {
+            accessibleContext.accessibleName = null
             icon = null
             append("Finished", SimpleTextAttributes.GRAYED_BOLD_ATTRIBUTES)
-            append("  ${node.count}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            append("  (${node.count})", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             toolTipText = null
             return
         }
-        val item = node as? Row ?: return
+        if (node is FolderGroup) {
+            accessibleContext.accessibleName = null
+            icon = AllIcons.Nodes.Folder
+            append(node.label, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+            node.location?.let { append("  ($it)", SimpleTextAttributes.GRAYED_ATTRIBUTES) }
+            append("  (${node.rows.size})", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            toolTipText = node.path?.let { StringUtil.escapeXmlEntities(it.toString()) }
+            return
+        }
+        (node as? Row)?.let(::renderRow)
+    }
+
+    private fun renderRow(item: Row) {
         val programIcon = ProgramIcons.of(item.program)
         icon =
             if (item.finished) IconLoader.getDisabledIcon(programIcon)
@@ -59,6 +74,10 @@ class SidebarRenderer : ColoredTreeCellRenderer() {
                     SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES,
                 )
             }
+        describe(item, settings)
+    }
+
+    private fun describe(item: Row, settings: HerdrSettings) {
         toolTipText =
             listOfNotNull(
                     item.state.text,
@@ -66,6 +85,14 @@ class SidebarRenderer : ColoredTreeCellRenderer() {
                     "${item.address} · ${item.cwd}",
                 )
                 .joinToString("<br>", "<html>", "</html>") { StringUtil.escapeXmlEntities(it) }
+        accessibleContext.accessibleName =
+            listOfNotNull(
+                    item.label,
+                    item.state.text,
+                    item.message?.takeIf { it.isNotBlank() },
+                    item.detail.takeIf { settings.showLocation && it.isNotEmpty() },
+                )
+                .joinToString(", ")
     }
 
     private fun age(duration: Duration): String =

@@ -50,6 +50,14 @@ class WorktreeRootsTest {
             ),
             WorktreeRoots.external(Path.of("/work/app/sub"), roots),
         )
+        assertEquals(emptyList(), WorktreeRoots.nested(Path.of("/work/app"), roots))
+        assertEquals(
+            listOf(Root(Path.of("/work/app/.dev/worktrees/x"), "x")),
+            WorktreeRoots.nested(
+                Path.of("/work/app"),
+                roots.map { if (it.branch == null) it.copy(branch = "x") else it },
+            ),
+        )
     }
 
     @Test

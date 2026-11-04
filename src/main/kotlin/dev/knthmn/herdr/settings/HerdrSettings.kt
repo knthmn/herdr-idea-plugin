@@ -8,6 +8,8 @@ import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import dev.knthmn.herdr.model.LabelKeys
+import dev.knthmn.herdr.model.SortOrder
+import dev.knthmn.herdr.model.ViewOptions
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +24,8 @@ class HerdrSettingsState : BaseState() {
     var resumeOnClick by property(true)
     var showLocation by property(true)
     var showAge by property(true)
+    var groupByFolder by property(false)
+    var sortOrder by string(SortOrder.RECENT.name)
 
     private fun key(default: String) = property(default) { it == default }
 }
@@ -91,6 +95,23 @@ class HerdrSettings : SimplePersistentStateComponent<HerdrSettingsState>(HerdrSe
         set(value) {
             state.showAge = value
         }
+
+    /** Sidebar view option. Call [changed] after a change. */
+    var groupByFolder: Boolean
+        get() = state.groupByFolder
+        set(value) {
+            state.groupByFolder = value
+        }
+
+    /** Sidebar view option. Call [changed] after a change. */
+    var sortOrder: SortOrder
+        get() = SortOrder.entries.find { it.name == state.sortOrder } ?: SortOrder.RECENT
+        set(value) {
+            state.sortOrder = value.name
+        }
+
+    val viewOptions: ViewOptions
+        get() = ViewOptions(groupByFolder, sortOrder)
 
     val labelKeys: LabelKeys
         get() = LabelKeys(resumeLabel, titleLabel, blockedLabel)

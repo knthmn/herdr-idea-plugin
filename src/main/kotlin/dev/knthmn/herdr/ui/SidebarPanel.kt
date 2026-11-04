@@ -16,6 +16,7 @@ import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.treeStructure.Tree
+import dev.knthmn.herdr.model.FolderGroup
 import dev.knthmn.herdr.model.ProjectSidebar
 import dev.knthmn.herdr.model.Row
 import dev.knthmn.herdr.model.SidebarModel
@@ -188,8 +189,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         }
 
         root.removeAllChildren()
-        model.rows.forEach { root.add(rowNode(it)) }
-        finishedNode(model)?.let(root::add)
+        topNodes(model).forEach(root::add)
         treeModel.reload()
 
         visit(root) { node ->
@@ -202,14 +202,20 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         singleClick.cancelAllRequests()
     }
 
-    private fun finishedNode(model: SidebarModel): DefaultMutableTreeNode? =
-        model.finished
-            .takeIf { it.isNotEmpty() }
-            ?.let { rows ->
-                DefaultMutableTreeNode(FinishedGroup(rows.size)).apply {
-                    rows.forEach { add(DefaultMutableTreeNode(it)) }
+    private fun topNodes(model: SidebarModel): List<DefaultMutableTreeNode> {
+        fun group(item: Any, children: List<DefaultMutableTreeNode>) =
+            DefaultMutableTreeNode(item).apply { children.forEach(::add) }
+        val live =
+            if (model.groups.isEmpty()) model.rows.map(::rowNode)
+            else model.groups.map { group(it, it.rows.map(::rowNode)) }
+        val finished =
+            model.finished
+                .takeIf { it.isNotEmpty() }
+                ?.let { rows ->
+                    group(FinishedGroup(rows.size), rows.map(::DefaultMutableTreeNode))
                 }
-            }
+        return live + listOfNotNull(finished)
+    }
 
     private fun rowNode(row: Row): DefaultMutableTreeNode =
         DefaultMutableTreeNode(row).apply { row.children.forEach { add(rowNode(it)) } }
@@ -218,6 +224,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         when (val item = node.userObject) {
             is Row -> item.address
             is FinishedGroup -> FINISHED_KEY
+            is FolderGroup -> FOLDER_KEY + (item.path?.toString() ?: "")
             else -> ""
         }
 
@@ -236,5 +243,6 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         private const val TOOLBAR_PLACE = "HerdrSidebarToolbar"
         private const val POPUP_PLACE = "HerdrSidebarPopup"
         private const val FINISHED_KEY = "#finished"
+        private const val FOLDER_KEY = "#folder:"
     }
 }

@@ -12,6 +12,7 @@ import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.DumbAwareAction
+import com.intellij.openapi.project.DumbAwareToggleAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.wm.ToolWindowId
@@ -22,6 +23,7 @@ import dev.knthmn.herdr.model.AgentState
 import dev.knthmn.herdr.model.Launchers
 import dev.knthmn.herdr.model.ReadState
 import dev.knthmn.herdr.model.Row
+import dev.knthmn.herdr.model.SortOrder
 import dev.knthmn.herdr.model.WorktreeRoots
 import dev.knthmn.herdr.settings.HerdrSettings
 import dev.knthmn.herdr.terminal.SessionActions
@@ -127,6 +129,22 @@ class SidebarActions(private val project: Project, private val selection: () -> 
                 WorktreeRoots.getInstance(project).refresh()
         }
 
+    private val viewOptions =
+        DefaultActionGroup("View Options", true).apply {
+            templatePresentation.icon = AllIcons.Actions.Show
+            add(Separator.create("Group By"))
+            add(
+                viewToggle(
+                    "Directory",
+                    { it.groupByFolder },
+                    { settings, on -> settings.groupByFolder = on },
+                )
+            )
+            add(Separator.create("Sort By"))
+            add(sortToggle("Recent", SortOrder.RECENT))
+            add(sortToggle("Status", SortOrder.STATUS))
+        }
+
     fun toolbar(): ActionGroup =
         DefaultActionGroup(
             newDefault,
@@ -136,6 +154,8 @@ class SidebarActions(private val project: Project, private val selection: () -> 
             finish,
             delete,
             refresh,
+            Separator.create(),
+            viewOptions,
         )
 
     fun popup(): ActionGroup =
@@ -181,6 +201,30 @@ class SidebarActions(private val project: Project, private val selection: () -> 
                     .filter { enabled(it) && !sessions.isBusy(it) }
                     .takeIf { it.isNotEmpty() }
                     ?.let(perform)
+            }
+        }
+
+    private fun sortToggle(text: String, order: SortOrder): AnAction =
+        viewToggle(
+            text,
+            { it.sortOrder == order },
+            { settings, on -> if (on) settings.sortOrder = order },
+        )
+
+    private fun viewToggle(
+        text: String,
+        get: (HerdrSettings) -> Boolean,
+        set: (HerdrSettings, Boolean) -> Unit,
+    ): AnAction =
+        object : DumbAwareToggleAction(text) {
+            override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+            override fun isSelected(e: AnActionEvent) = get(HerdrSettings.getInstance())
+
+            override fun setSelected(e: AnActionEvent, state: Boolean) {
+                val settings = HerdrSettings.getInstance()
+                set(settings, state)
+                settings.changed()
             }
         }
 

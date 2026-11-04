@@ -68,7 +68,8 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
                 WorktreeRoots.getInstance(project).roots,
                 HerdrSettings.getInstance().changes,
             ) { core, readAt, roots, _ ->
-                toSidebarState(core, readAt, roots, HerdrSettings.getInstance().labelKeys)
+                val settings = HerdrSettings.getInstance()
+                toSidebarState(core, readAt, roots, settings.labelKeys, settings.viewOptions)
             }
             .flowOn(Dispatchers.Default)
             .stateIn(
@@ -129,6 +130,7 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
         readAt: Map<String, Long>,
         roots: List<Root>,
         keys: LabelKeys,
+        view: ViewOptions,
     ): SidebarState {
         return when {
             core is CoreState.NotFound -> SidebarState.NotFound
@@ -145,7 +147,7 @@ class ProjectSidebar(private val project: Project, cs: CoroutineScope) {
                     }
                 SidebarState.Ready(
                     core.hc,
-                    SidebarModel.build(terminals, roots, readAt::get, ::realPath, keys),
+                    SidebarModel.build(terminals, roots, readAt::get, ::realPath, keys, view),
                 )
             }
             else -> SidebarState.Connecting

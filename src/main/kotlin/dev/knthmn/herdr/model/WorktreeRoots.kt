@@ -47,10 +47,14 @@ class WorktreeRoots(private val project: Project, private val cs: CoroutineScope
     private fun load() {
         val base = project.basePath ?: return
         val list = gitWorktrees(base)
-        val worktrees = external(Path.of(base), parse(list))
+        val checkouts = parse(list)
+        val worktrees = external(Path.of(base), checkouts)
         val extra = HerdrProjectSettings.getInstance(project).extraRoots
         mutableRoots.value =
-            listOf(projectRoot(base)) + worktrees + extra(Path.of(base), worktrees, extra)
+            listOf(projectRoot(base)) +
+                worktrees +
+                extra(Path.of(base), worktrees, extra) +
+                nested(Path.of(base), checkouts)
     }
 
     private fun gitWorktrees(base: String): String =
@@ -116,6 +120,18 @@ class WorktreeRoots(private val project: Project, private val cs: CoroutineScope
                 .filter { it.isAbsolute && covered.none(it::startsWith) }
                 .distinct()
                 .map { Root(it) }
+        }
+
+        /**
+         * The checkouts on a branch inside the project folder. They add no scope, only the branch
+         * name for the sidebar.
+         */
+        fun nested(base: Path, worktrees: List<Root>): List<Root> {
+            val project = base.normalize()
+            return worktrees.filter {
+                val path = it.path.normalize()
+                it.branch != null && path != project && path.startsWith(project)
+            }
         }
 
         /** The checkouts that neither contain the project folder nor lie inside it. */
