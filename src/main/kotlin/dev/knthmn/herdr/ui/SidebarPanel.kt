@@ -35,6 +35,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
+private fun row(path: TreePath): Row? =
+    (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? Row
+
 /** The tree node that holds finished terminals. */
 data class FinishedGroup(val count: Int)
 
@@ -47,7 +50,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
     private val ageTimer = Timer(AGE_REFRESH_MS) { tree.repaint() }
     private var hc: Path? = null
     private var finishedExpanded = false
-    private val actions = SidebarActions(project, ::selectedRow)
+    private val actions = SidebarActions(project, ::selectedRows)
 
     init {
         Disposer.register(parent, this)
@@ -58,7 +61,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
             object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
                     if (SwingUtilities.isLeftMouseButton(e) && e.clickCount == 1) {
-                        tree.getPathForLocation(e.x, e.y)?.let(::open)
+                        tree.getPathForLocation(e.x, e.y)?.let(::row)?.let(::open)
                     }
                 }
             }
@@ -66,7 +69,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         tree.addKeyListener(
             object : KeyAdapter() {
                 override fun keyPressed(e: KeyEvent) {
-                    if (e.keyCode == KeyEvent.VK_ENTER) tree.selectionPath?.let(::open)
+                    if (e.keyCode == KeyEvent.VK_ENTER) selectedRows().forEach(::open)
                 }
             }
         )
@@ -82,11 +85,10 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         scope.launch { HerdrSettings.getInstance().changes.collect { tree.repaint() } }
     }
 
-    private fun selectedRow(): Row? =
-        (tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? Row
+    private fun selectedRows(): List<Row> =
+        tree.selectionPaths.orEmpty().sortedBy(tree::getRowForPath).mapNotNull(::row)
 
-    private fun open(path: TreePath) {
-        val row = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? Row ?: return
+    private fun open(row: Row) {
         if (row.canResume && HerdrSettings.getInstance().resumeOnClick) {
             SessionActions.getInstance(project).resume(row)
             return
@@ -134,7 +136,9 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
     private fun update(model: SidebarModel) {
         val collapsed = mutableSetOf<String>()
         val selected =
-            tree.selectionPath?.let { key(it.lastPathComponent as DefaultMutableTreeNode) }
+            tree.selectionPaths.orEmpty().mapTo(HashSet()) {
+                key(it.lastPathComponent as DefaultMutableTreeNode)
+            }
         visit(root) { node ->
             val expanded = tree.isExpanded(TreePath(node.path))
             if (node.childCount > 0 && !expanded) collapsed += key(node)
@@ -151,8 +155,7 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
             val expand =
                 if (node.userObject is FinishedGroup) finishedExpanded else key(node) !in collapsed
             if (node !== root && node.childCount > 0 && expand) tree.expandPath(path)
-            if (selected != null && node !== root && key(node) == selected)
-                tree.selectionPath = path
+            if (node !== root && key(node) in selected) tree.addSelectionPath(path)
         }
     }
 

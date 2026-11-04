@@ -29,8 +29,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 import javax.swing.Icon
 
-/** Toolbar and context menu actions of the sidebar. [selected] is the selected row, if any. */
-class SidebarActions(private val project: Project, private val selected: () -> Row?) {
+/**
+ * Toolbar and context menu actions of the sidebar. [selection] gives the selected rows, in tree
+ * order.
+ */
+class SidebarActions(private val project: Project, private val selection: () -> List<Row>) {
     private val sessions = SessionActions.getInstance(project)
 
     private val newDefault = NewDefaultSession()
@@ -42,7 +45,7 @@ class SidebarActions(private val project: Project, private val selected: () -> R
             "Run the session's resume command",
             AllIcons.Actions.Resume,
             { it.canResume },
-            sessions::resume,
+            { rows -> rows.forEach(sessions::resume) },
         )
     private val finish =
         rowAction(
@@ -67,7 +70,7 @@ class SidebarActions(private val project: Project, private val selected: () -> R
             null,
             null,
             { it.state == AgentState.UNREAD },
-            { ReadState.getInstance().markRead(it.address) },
+            { rows -> rows.forEach { ReadState.getInstance().markRead(it.address) } },
             hidden = true,
         )
     private val markUnread =
@@ -76,7 +79,7 @@ class SidebarActions(private val project: Project, private val selected: () -> R
             null,
             null,
             { it.canMarkUnread },
-            { ReadState.getInstance().markUnread(it.address) },
+            { rows -> rows.forEach { ReadState.getInstance().markUnread(it.address) } },
             hidden = true,
         )
     private val clearBlocked =
@@ -85,7 +88,7 @@ class SidebarActions(private val project: Project, private val selected: () -> R
             "Remove the blocked label, for a question that is no longer open",
             null,
             { it.hasBlockedLabel },
-            sessions::clearBlocked,
+            { rows -> rows.forEach(sessions::clearBlocked) },
         )
 
     private val copy =
@@ -152,27 +155,32 @@ class SidebarActions(private val project: Project, private val selected: () -> R
             openTerminal,
         )
 
-    /** [hidden]: hide the action instead of disabling it when [enabled] is false. */
+    /**
+     * Runs [perform] on the selected rows that [enabled] accepts and that are not busy. [hidden]:
+     * hide the action instead of disabling it when no selected row is accepted.
+     */
     private fun rowAction(
         text: String,
         description: String?,
         icon: Icon?,
         enabled: (Row) -> Boolean,
-        perform: (Row) -> Unit,
+        perform: (List<Row>) -> Unit,
         hidden: Boolean = false,
     ): AnAction =
         object : DumbAwareAction(text, description, icon) {
             override fun getActionUpdateThread() = ActionUpdateThread.EDT
 
             override fun update(e: AnActionEvent) {
-                val row = selected()
-                val applies = row != null && enabled(row)
-                e.presentation.isEnabled = applies && !sessions.isBusy(row)
-                if (hidden) e.presentation.isVisible = applies
+                val accepted = selection().filter(enabled)
+                e.presentation.isEnabled = accepted.any { !sessions.isBusy(it) }
+                if (hidden) e.presentation.isVisible = accepted.isNotEmpty()
             }
 
             override fun actionPerformed(e: AnActionEvent) {
-                selected()?.let(perform)
+                selection()
+                    .filter { enabled(it) && !sessions.isBusy(it) }
+                    .takeIf { it.isNotEmpty() }
+                    ?.let(perform)
             }
         }
 
@@ -181,14 +189,17 @@ class SidebarActions(private val project: Project, private val selected: () -> R
             override fun getActionUpdateThread() = ActionUpdateThread.EDT
 
             override fun update(e: AnActionEvent) {
-                val copied = selected()?.let(value)
+                val copied = copied()
                 e.presentation.isEnabledAndVisible = copied != null
                 e.presentation.description = copied
             }
 
             override fun actionPerformed(e: AnActionEvent) {
-                selected()?.let(value)?.let(CopyPasteManager::copyTextToClipboard)
+                copied()?.let(CopyPasteManager::copyTextToClipboard)
             }
+
+            private fun copied(): String? =
+                selection().mapNotNull(value).takeIf { it.isNotEmpty() }?.joinToString("\n")
         }
 
     private fun folderAction(text: String, icon: Icon?, perform: (Path) -> Unit): AnAction =
@@ -204,7 +215,8 @@ class SidebarActions(private val project: Project, private val selected: () -> R
             }
 
             private fun folder(): Path? =
-                selected()
+                selection()
+                    .singleOrNull()
                     ?.cwd
                     ?.takeIf { it.isNotEmpty() }
                     ?.let { Path.of(it) }

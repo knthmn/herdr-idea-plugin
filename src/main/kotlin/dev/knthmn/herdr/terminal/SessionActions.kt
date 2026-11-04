@@ -26,6 +26,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
+private fun describe(rows: List<Row>): String {
+    val subject = rows.singleOrNull()?.label ?: "${rows.size} terminals"
+    val children = rows.sumOf { it.liveDescendants }
+    return if (children > 0) "$subject and $children child terminals" else subject
+}
+
 /** New, resume, finish, delete and label changes for hc terminals, from the sidebar. */
 @Service(Service.Level.PROJECT)
 class SessionActions(private val project: Project, private val cs: CoroutineScope) {
@@ -85,35 +91,32 @@ class SessionActions(private val project: Project, private val cs: CoroutineScop
         }
     }
 
-    fun finish(row: Row) {
-        val ending =
-            if (row.liveDescendants > 0) " and ${row.liveDescendants} child terminals" else ""
-        if (!confirm("End ${row.label}$ending?", "Finish Terminal", "Finish")) return
-        guarded(row, "Cannot finish ${row.label}") { hc.kill(row.address) }
+    fun finish(rows: List<Row>) {
+        if (rows.isEmpty()) return
+        val title = if (rows.size == 1) "Finish Terminal" else "Finish Terminals"
+        if (!confirm("End ${describe(rows)}?", title, "Finish")) return
+        rows.forEach { row -> guarded(row, "Cannot finish ${row.label}") { hc.kill(row.address) } }
     }
 
-    fun delete(row: Row) {
-        if (row.finished) {
-            guarded(row, "Cannot delete ${row.label}") { hc.rm(row.address) }
-            return
+    fun delete(rows: List<Row>) {
+        val live = rows.filter { !it.finished }
+        if (live.isNotEmpty()) {
+            val them = if (live.size == 1) "it" else "them"
+            val title = if (rows.size == 1) "Delete Terminal" else "Delete Terminals"
+            val message = "End ${describe(live)} and remove $them from herdr-core?"
+            if (!confirm(message, title, "Delete")) return
         }
-        val ending =
-            if (row.liveDescendants > 0) " and ${row.liveDescendants} child terminals" else ""
-        if (
-            !confirm(
-                "End ${row.label}$ending and remove it from herdr-core?",
-                "Delete Terminal",
-                "Delete",
-            )
-        )
-            return
-        guarded(row, "Cannot delete ${row.label}") {
-            hc.kill(row.address)
-            val sidebar = ProjectSidebar.getInstance(project)
-            withTimeoutOrNull(FINISH_TIMEOUT) {
-                while (sidebar.terminal(row.address)?.finished == false) delay(POLL)
+        rows.forEach { row ->
+            guarded(row, "Cannot delete ${row.label}") {
+                if (!row.finished) {
+                    hc.kill(row.address)
+                    val sidebar = ProjectSidebar.getInstance(project)
+                    withTimeoutOrNull(FINISH_TIMEOUT) {
+                        while (sidebar.terminal(row.address)?.finished == false) delay(POLL)
+                    }
+                }
+                hc.rm(row.address)
             }
-            hc.rm(row.address)
         }
     }
 
