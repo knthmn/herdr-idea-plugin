@@ -299,16 +299,24 @@ data class SidebarModel(
 
         private fun detail(cwd: Path, roots: List<Root>): String {
             val project = roots.firstOrNull()?.path
+            val branch =
+                roots
+                    .drop(1)
+                    .filter { it.branch != null && cwd.startsWith(it.path) }
+                    .maxByOrNull { it.path.nameCount }
+            if (branch != null) return rootDetail(cwd, branch)
             if (project != null && cwd.startsWith(project)) {
                 return if (cwd == project) "" else project.relativize(cwd).toString()
             }
             val worktree = roots.drop(1).firstOrNull { cwd.startsWith(it.path) }
-            if (worktree != null) {
-                val name = worktree.branch ?: worktree.path.fileName?.toString().orEmpty()
-                val sub = worktree.path.relativize(cwd).toString()
-                return if (sub.isEmpty()) name else "$name/$sub"
-            }
+            if (worktree != null) return rootDetail(cwd, worktree)
             return HcLocator.abbreviateHome(cwd.toString())
+        }
+
+        private fun rootDetail(cwd: Path, root: Root): String {
+            val name = root.branch ?: root.path.fileName?.toString().orEmpty()
+            val sub = root.path.relativize(cwd).toString()
+            return if (sub.isEmpty()) name else "$name/$sub"
         }
     }
 }
