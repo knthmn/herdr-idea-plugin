@@ -1,6 +1,8 @@
-# herdr-idea-plugin
+# Herdr Session Manager
 
-An IntelliJ plugin that lists the [herdr-core](https://herdr.dev/core/) terminals of the open project in a sidebar and opens them in editor tabs.
+An IntelliJ plugin that lists the [herdr-core](https://herdr.dev/core/) terminals of the open project in a sidebar and opens them in editor tabs. It is not affiliated with the herdr project.
+
+![The Herdr sidebar with agent sessions in a project and two git worktrees, next to a pi session in an editor tab](docs/images/sidebar.png)
 
 ## Requirements
 
@@ -77,3 +79,7 @@ The `herdr-attach` helper is built for the targets in `helperTargets` in `gradle
 - Resume of a live terminal types the command with `hc send`, into whatever reads input at that moment.
 - IntelliJ shows no terminal images. See [Terminal identity and shared sessions](docs/terminal-identity.md).
 - The plugin uses IntelliJ's experimental Reworked Terminal API.
+
+## License
+
+[Apache License 2.0](LICENSE). Bundled third-party files keep their own licenses. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
