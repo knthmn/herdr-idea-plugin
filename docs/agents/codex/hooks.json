@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "~/.codex/hooks/hc-labels.sh" }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "~/.codex/hooks/hc-labels.sh" }] }],
+    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "~/.codex/hooks/hc-labels.sh" }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "~/.codex/hooks/hc-labels.sh" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "~/.codex/hooks/hc-labels.sh" }] }],
+    "Interrupt": [{ "hooks": [{ "type": "command", "command": "~/.codex/hooks/hc-labels.sh" }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "~/.codex/hooks/hc-labels.sh" }] }]
+  }
+}
