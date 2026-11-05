@@ -1,11 +1,24 @@
 <idea-plugin>
-    <id>dev.knthmn.herdr-idea-plugin</id>
-    <name>Herdr</name>
-    <vendor>knthmn</vendor>
+    <id>dev.knthmn.herdr-session-manager</id>
+    <name>Herdr Session Manager</name>
+    <vendor url="https://github.com/knthmn/herdr-idea-plugin">knthmn</vendor>
     <description><![CDATA[
-        <p>Shows herdr-core terminals of the current project and opens them in editor tabs.</p>
-        <p>A personal tool. Resume, session titles and the blocked state need an agent integration that writes terminal labels. Not for publication.</p>
+        <p>Lists the <a href="https://herdr.dev/core/">herdr-core</a> terminals of the open project in a sidebar and opens them in editor tabs.
+        Coding agents such as Claude Code, Codex, pi and OpenCode show their status: blocked, error, unread, running or idle.</p>
+        <ul>
+            <li>Shows the terminals of the project folder, its git worktrees and extra folders.</li>
+            <li>Shows child terminals under their parent, and finished terminals in a separate group.</li>
+            <li>Starts, resumes, finishes and deletes sessions from the toolbar.</li>
+            <li>Groups the rows by folder or worktree branch, and sorts them by recent change or by status.</li>
+        </ul>
+        <p>Needs herdr-core 0.1.16 or later. Settings | Tools | Herdr can install it.
+        Resume, session titles and some blocked states need an agent integration that writes terminal labels.
+        See the <a href="https://github.com/knthmn/herdr-idea-plugin#labels-and-agent-integrations">README</a>.</p>
+        <p>This plugin is not affiliated with the herdr project.</p>
     ]]></description>
+    <change-notes><![CDATA[
+        <p>First release.</p>
+    ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>org.jetbrains.plugins.terminal</depends>
