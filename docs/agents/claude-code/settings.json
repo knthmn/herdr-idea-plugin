@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }],
+    "PreToolUse": [
+      { "matcher": "AskUserQuestion", "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }
+    ],
+    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }],
+    "PostToolUseFailure": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }],
+    "StopFailure": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "~/.claude/hooks/hc-labels.sh" }] }]
+  }
+}
