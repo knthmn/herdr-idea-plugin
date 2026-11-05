@@ -428,7 +428,7 @@ class SidebarModelTest {
     }
 
     @Test
-    fun `a worktree inside the project groups by branch with its folder`() {
+    fun `a worktree inside the project shows and groups by its branch`() {
         val roots = root + Root(Path.of("/work/app/.dev/worktrees/x"), "feat/x")
         val model =
             build(
@@ -444,8 +444,15 @@ class SidebarModelTest {
             listOf(".dev/worktrees/x", ".dev/worktrees/x/src"),
             model.groups.map { it.location },
         )
-        val flat = build(listOf(t("wt", cwd = "/work/app/.dev/worktrees/x")), roots)
-        assertEquals(".dev/worktrees/x", flat.rows.single().detail)
+        val flat =
+            build(
+                listOf(
+                    t("wt", cwd = "/work/app/.dev/worktrees/x", since = 2),
+                    t("sub", cwd = "/work/app/.dev/worktrees/x/src", since = 1),
+                ),
+                roots,
+            )
+        assertEquals(listOf("feat/x", "feat/x/src"), flat.rows.map { it.detail })
     }
 
     @Test
