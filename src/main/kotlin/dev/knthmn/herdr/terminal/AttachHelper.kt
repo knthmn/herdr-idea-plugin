@@ -1,8 +1,7 @@
 package dev.knthmn.herdr.terminal
 
-import com.intellij.ide.plugins.PluginManagerCore
+import com.intellij.ide.plugins.cl.PluginAwareClassLoader
 import com.intellij.openapi.diagnostic.thisLogger
-import com.intellij.openapi.extensions.PluginId
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -11,7 +10,6 @@ import java.nio.file.Path
  * from the output, which the IDE terminal shows as text.
  */
 object AttachHelper {
-    private const val PLUGIN_ID = "dev.knthmn.herdr-idea-plugin"
     private const val NAME = "herdr-attach"
 
     /** The command that attaches to [address], through the helper when it exists. */
@@ -37,7 +35,10 @@ object AttachHelper {
     }
 
     private fun locate(): Path? {
-        val root = PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))?.pluginPath ?: return null
+        val root =
+            (AttachHelper::class.java.classLoader as? PluginAwareClassLoader)
+                ?.pluginDescriptor
+                ?.pluginPath ?: return null
         val platform =
             platform(System.getProperty("os.name"), System.getProperty("os.arch")) ?: return null
         val file = root.resolve("bin").resolve(platform).resolve(NAME)
