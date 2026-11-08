@@ -4,7 +4,7 @@ The plugin reads three terminal labels: `resume`, `title` and `blocked`. These a
 
 | Agent | Files | `resume` | `title` | `blocked` | Checked |
 |---|---|---|---|---|---|
-| pi | [`pi-extensions/`](../pi-extensions/) | `pi --session '<file>'` | Session name | Open `ask_user_question` | pi 1.4.0 |
+| pi | [`pi/`](pi/) | `pi --session '<file>'` | Session name | Open `ask_user_question` | pi 1.4.0 |
 | Claude Code | [`claude-code/`](claude-code/) | `cd '<cwd>' && claude --resume <id>` | Custom session title | Open `AskUserQuestion`, permission prompt | No |
 | Codex CLI | [`codex/`](codex/) | `cd '<cwd>' && codex resume <id>` | Thread name | Approval prompt | No |
 | OpenCode | [`opencode/`](opencode/) | `cd '<dir>' && opencode --session <id>` | Session title | Open question, permission prompt | No |
@@ -23,7 +23,7 @@ The plugin reads three terminal labels: `resume`, `title` and `blocked`. These a
 ## pi
 
 ```sh
-cp docs/pi-extensions/hc-labels.ts docs/pi-extensions/hc-blocked.ts ~/.pi/agent/extensions/
+cp docs/agents/pi/hc-labels.ts docs/agents/pi/hc-blocked.ts ~/.pi/agent/extensions/
 ```
 
 Running pi sessions load them after a restart or `/reload`.
