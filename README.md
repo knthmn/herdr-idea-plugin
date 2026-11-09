@@ -73,7 +73,18 @@ Do not use the Herdr app's keys (`herdr.space`, `herdr.tab`, `where`).
 scripts/install-local.sh         # build, quit IntelliJ, install, restart it if it ran (macOS)
 ```
 
-The `herdr-attach` helper is built for the targets in `helperTargets` in `gradle.properties` (default `aarch64-apple-darwin`). Supported targets are `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu` and `x86_64-unknown-linux-gnu`, as a comma-separated list. Without it, kitty graphics show as base64 text.
+The `herdr-attach` helper is built for the targets in `helperTargets` in `gradle.properties` (default `aarch64-apple-darwin`). Supported targets are `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu` and `x86_64-unknown-linux-gnu`, as a comma-separated list. Without it, kitty graphics show as base64 text. On a host that is not Linux, the Linux targets need [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild) and zig. They link against glibc 2.17.
+
+## Release
+
+Add user-visible changes to the Unreleased section of [CHANGELOG.md](CHANGELOG.md). The plugin change notes and the GitHub release notes come from it.
+
+```sh
+scripts/release.sh 0.3.0         # set the version, move Unreleased to 0.3.0, commit, tag v0.3.0
+git push origin HEAD v0.3.0
+```
+
+The tag starts [the Release workflow](.github/workflows/release.yml). It builds the helper for all four targets, runs `check` and `verifyPlugin`, publishes to JetBrains Marketplace and creates the GitHub release with the zip. It needs the repository secret `PUBLISH_TOKEN`, a JetBrains Marketplace token.
 
 ## Limits
 

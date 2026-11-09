@@ -1,3 +1,4 @@
+import org.jetbrains.changelog.Changelog
 import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 
 plugins {
@@ -6,6 +7,7 @@ plugins {
     id("org.jetbrains.intellij.platform")
     id("com.diffplug.spotless")
     id("dev.detekt")
+    id("org.jetbrains.changelog")
 }
 
 kotlin {
@@ -33,7 +35,26 @@ intellijPlatform {
         ideaVersion {
             sinceBuild = "262"
         }
+        val changelog = project.changelog
+        changeNotes =
+            providers.gradleProperty("version").map { version ->
+                with(changelog) {
+                    renderItem(
+                        (getOrNull(version) ?: getUnreleased())
+                            .withHeader(false)
+                            .withEmptySections(false),
+                        Changelog.OutputType.HTML,
+                    )
+                }
+            }
     }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
+}
+
+changelog {
+    repositoryUrl = "https://github.com/knthmn/herdr-idea-plugin"
 }
 
 spotless {
@@ -56,6 +77,8 @@ tasks.test {
     useJUnitPlatform()
 }
 
+val glibcVersion = "2.17"
+
 val helperPlatforms =
     mapOf(
         "aarch64-apple-darwin" to "darwin-aarch64",
@@ -71,22 +94,24 @@ val helperTargets =
         .map(String::trim)
         .filter(String::isNotEmpty)
 val cargoDir = layout.buildDirectory.dir("cargo")
+val linuxHost = System.getProperty("os.name").startsWith("Linux")
 
 val helperBuilds = helperTargets.map { target ->
     val platform =
         helperPlatforms[target] ?: error("Unknown helper target $target in helperTargets")
     platform to
         tasks.register<Exec>("buildHelper-$platform") {
+            val zig = target.endsWith("-linux-gnu") && !linuxHost
             group = "build"
             description = "Builds the herdr-attach helper for $target."
             workingDir = file("helper")
             commandLine(
                 "cargo",
-                "build",
+                if (zig) "zigbuild" else "build",
                 "--release",
                 "--locked",
                 "--target",
-                target,
+                if (zig) "$target.$glibcVersion" else target,
                 "--target-dir",
                 cargoDir.get().asFile.path,
             )

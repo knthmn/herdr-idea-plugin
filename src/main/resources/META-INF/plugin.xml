@@ -16,10 +16,6 @@
         See the <a href="https://github.com/knthmn/herdr-idea-plugin#labels-and-agent-integrations">README</a>.</p>
         <p>This plugin is not affiliated with the herdr project.</p>
     ]]></description>
-    <change-notes><![CDATA[
-        <p>First release.</p>
-    ]]></change-notes>
-
     <depends>com.intellij.modules.platform</depends>
     <depends>org.jetbrains.plugins.terminal</depends>
 
