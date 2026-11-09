@@ -26,6 +26,7 @@ class HerdrSettingsState : BaseState() {
     var showAge by property(true)
     var groupByFolder by property(false)
     var sortOrder by string(SortOrder.RECENT.name)
+    var selectOpened by property(true)
     var checkUpdates by property(true)
     var latestVersion by string("")
     var lastCheckMillis by property(0L)
@@ -112,6 +113,13 @@ class HerdrSettings : SimplePersistentStateComponent<HerdrSettingsState>(HerdrSe
         get() = SortOrder.entries.find { it.name == state.sortOrder } ?: SortOrder.RECENT
         set(value) {
             state.sortOrder = value.name
+        }
+
+    /** Sidebar view option: select the row of the active terminal tab. */
+    var selectOpened: Boolean
+        get() = state.selectOpened
+        set(value) {
+            state.selectOpened = value
         }
 
     val viewOptions: ViewOptions

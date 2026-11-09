@@ -2,7 +2,6 @@ package dev.knthmn.herdr.ui
 
 import com.intellij.ide.projectView.ProjectView
 import com.intellij.ide.projectView.impl.ProjectViewPane
-import com.intellij.ide.projectView.impl.ProjectViewState
 import com.intellij.ide.ui.UISettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
@@ -169,14 +168,11 @@ class SidebarPanel(private val project: Project, parent: Disposable) :
         onActiveFile(FileEditorManager.getInstance(project).selectedFiles.firstOrNull())
     }
 
-    /**
-     * Follows the Project view option "Always Select Opened File", also when the Project view is
-     * hidden.
-     */
+    /** Selects the row of the active terminal tab when the view option is on. */
     private fun onActiveFile(file: VirtualFile?) {
         pendingReveal = null
         if (file !is AgentTerminalFile) return
-        if (!ProjectViewState.getInstance(project).autoscrollFromSource) return
+        if (!HerdrSettings.getInstance().selectOpened) return
         reveal(file.address)
     }
 

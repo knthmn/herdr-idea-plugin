@@ -143,6 +143,14 @@ class SidebarActions(private val project: Project, private val selection: () -> 
             add(Separator.create("Sort By"))
             add(sortToggle("Recent", SortOrder.RECENT))
             add(sortToggle("Status", SortOrder.STATUS))
+            add(Separator.create("Behavior"))
+            add(
+                viewToggle(
+                    "Always Select Opened Terminal",
+                    { it.selectOpened },
+                    { settings, on -> settings.selectOpened = on },
+                )
+            )
         }
 
     fun toolbar(): ActionGroup =
