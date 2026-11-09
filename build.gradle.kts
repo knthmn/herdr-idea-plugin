@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
+
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.kotlin.plugin.serialization")
@@ -10,6 +12,7 @@ kotlin {
     jvmToolchain(25)
     compilerOptions {
         allWarningsAsErrors = true
+        jvmDefault = JvmDefaultMode.NO_COMPATIBILITY
     }
 }
 
