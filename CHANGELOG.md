@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-09
+
 ### Added
 
 - Terminal tabs open again when the IDE restarts.
@@ -18,5 +20,6 @@
 
 - First release.
 
-[Unreleased]: https://github.com/knthmn/herdr-idea-plugin/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/knthmn/herdr-idea-plugin/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/knthmn/herdr-idea-plugin/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/knthmn/herdr-idea-plugin/commits/v0.1.0
