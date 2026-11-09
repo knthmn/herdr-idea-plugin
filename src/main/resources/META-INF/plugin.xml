@@ -32,6 +32,10 @@
         <fileIconProvider
                 order="first"
                 implementation="dev.knthmn.herdr.terminal.AgentFileIconProvider"/>
+        <virtualFileSystem
+                key="herdr"
+                physical="false"
+                implementationClass="dev.knthmn.herdr.terminal.HerdrFileSystem"/>
         <fileEditorProvider implementation="dev.knthmn.herdr.terminal.AgentTerminalEditorProvider"/>
         <editorTabTitleProvider implementation="dev.knthmn.herdr.terminal.AgentTabTitleProvider"/>
         <notificationGroup id="Herdr" displayType="BALLOON"/>

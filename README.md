@@ -23,6 +23,7 @@ agent + integration ──hc label──► herdr-core ◄──hc connect──
 - An agent integration writes labels on the same terminal with `hc label`.
 - The plugin subscribes to core events with `hc connect` and shows the terminals whose cwd is under the project, one of its git worktrees, or an extra folder from Settings > Tools > Herdr > Scope. Child terminals of these terminals show too.
 - Opening a row runs `hc attach` in an editor tab. Ctrl+\ closes the tab, and the program keeps running.
+- Terminal tabs stay open when the IDE restarts. The IDE restores them and runs `hc attach` again. A tab closes if its terminal is gone or finished.
 - Sidebar actions (New session, Resume, Finish, Delete, Clear Blocked) call `hc run`, `hc keys`, `hc send`, `hc kill`, `hc rm` and `hc label`.
 
 ## Sidebar
