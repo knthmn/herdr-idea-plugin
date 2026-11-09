@@ -1,6 +1,7 @@
 package dev.knthmn.herdr.terminal
 
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.fileEditor.FileEditorManagerKeys
 import com.intellij.openapi.fileTypes.ex.FakeFileType
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileSystem
@@ -21,6 +22,7 @@ class AgentTerminalFile internal constructor(val ref: TerminalPath) :
     init {
         fileType = AgentTerminalFileType
         isWritable = false
+        putUserData(FileEditorManagerKeys.FORBID_TAB_SPLIT, true)
     }
 
     override fun getFileSystem(): VirtualFileSystem = HerdrFileSystem.getInstance()
