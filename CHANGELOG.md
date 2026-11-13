@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- A herdr-core started by the plugin gets the login shell environment, not the IDE's. Before, with an IDE opened from the Dock, its terminals had only the system PATH.
+
 ## [0.2.0] - 2026-11-09
 
 ### Added

@@ -97,7 +97,7 @@ class HcClient(private val cs: CoroutineScope) {
 
     private suspend fun connect(hc: Path, job: Job): String = coroutineScope {
         val process =
-            ProcessBuilder(hc.toString(), "connect")
+            HcProcess.builder(listOf(hc.toString(), "connect"))
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
         val watcher =

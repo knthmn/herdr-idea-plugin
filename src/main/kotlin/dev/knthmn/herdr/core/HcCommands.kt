@@ -106,7 +106,7 @@ class HcCommands {
 
     private fun start(command: List<String>): Process =
         try {
-            ProcessBuilder(command)
+            HcProcess.builder(command)
                 .apply {
                     environment()["TERM_PROGRAM"] = TERM_PROGRAM
                     environment().remove("TERM_PROGRAM_VERSION")
